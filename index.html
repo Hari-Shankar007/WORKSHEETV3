@@ -232,6 +232,7 @@ canvas.brd { width: 100%; height: 100%; display: block; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
+<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -783,16 +784,63 @@ function updateDiffTotal() {
 ['cnt-easy','cnt-med','cnt-hard'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateDiffTotal));
 
-// ── Lichess API fetch ──────────────────────────────────
-// Maps UI difficulty labels to Lichess API difficulty enum values
-// Lichess API: easiest | easier | normal | harder | hardest
-const DIFF_MAP = { easy: 'easiest', medium: 'normal', hard: 'hardest' };
+// ═══════════════════════════════════════════════════════════════════════════
+// FIXED LICHESS API FETCH
+// ═══════════════════════════════════════════════════════════════════════════
 
-async function fetchBatch(theme, difficulty, count, apiKey) {
-  if (count <= 0) return [];
-  const url = `https://lichess.org/api/puzzle/batch/${encodeURIComponent(theme)}?nb=${count}&difficulty=${difficulty}`;
+// Lichess API difficulty is numeric: 1 (easiest) → 4 (hardest)
+const DIFF_MAP = { easy: 1, medium: 2, hard: 4 };
+
+/**
+ * Extract FEN from a Lichess puzzle response object.
+ * Handles multiple response shapes from different endpoints.
+ */
+function extractFenFromPuzzle(p) {
+  if (!p) return '';
+  // Standard batch/next response: puzzle.game.fen or puzzle.fen
+  if (p.puzzle) {
+    if (typeof p.puzzle.fen === 'string') return p.puzzle.fen;
+    if (p.puzzle.game && typeof p.puzzle.game.fen === 'string') return p.puzzle.game.fen;
+  }
+  // Flat structure fallback
+  if (typeof p.fen === 'string') return p.fen;
+  if (p.game && typeof p.game.fen === 'string') return p.game.fen;
+  return '';
+}
+
+/**
+ * Fetch a single puzzle from /api/puzzle/next (supports angle + difficulty filtering)
+ */
+async function fetchOnePuzzle(theme, difficultyNum, apiKey) {
+  const params = new URLSearchParams();
+  if (theme) params.set('angle', theme);
+  if (difficultyNum) params.set('difficulty', String(difficultyNum));
+  const url = `https://lichess.org/api/puzzle/next?${params.toString()}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ' — ' + body.slice(0, 120) : ''}`);
+  }
+  const data = await res.json();
+  const fen = extractFenFromPuzzle(data);
+  return fen || '';
+}
+
+/**
+ * Fetch multiple puzzles using the batch endpoint.
+ * The batch endpoint is: GET /api/puzzle/batch/{nb}
+ * Query params: angle (theme), difficulty (1-4)
+ */
+async function fetchBatch(theme, difficultyNum, count, apiKey) {
+  if (count <= 0) return [];
+  const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}&difficulty=${difficultyNum}`;
+  const headers = { 'Accept': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  console.log('[Lichess API] Batch URL:', url);
   const res = await fetch(url, { headers });
   if (res.status === 401) throw new Error('Invalid or missing API token — check your token at lichess.org/account/oauth/token');
   if (res.status === 429) throw new Error('Rate limited by Lichess. Wait a minute and retry.');
@@ -800,20 +848,23 @@ async function fetchBatch(theme, difficulty, count, apiKey) {
     const body = await res.text().catch(() => '');
     throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ' — ' + body.slice(0, 120) : ''}`);
   }
+
   const data = await res.json();
-  // Robust FEN extraction: p.puzzle.fen is the standard Lichess response shape,
-  // with fallbacks for alternate structures
-  return (data.puzzles || [])
-    .map(p => {
-      // Primary: nested puzzle object (standard Lichess batch response)
-      if (p.puzzle && typeof p.puzzle.fen === 'string') return p.puzzle.fen;
-      // Fallback: flat fen property
-      if (typeof p.fen === 'string') return p.fen;
-      // Fallback: try p.game.fen (alternate API shape)
-      if (p.game && typeof p.game.fen === 'string') return p.game.fen;
-      return '';
-    })
+  console.log('[Lichess API] Batch response keys:', Object.keys(data));
+
+  // The batch endpoint returns { puzzles: [ { puzzle: { fen, ... }, ... }, ... ] }
+  const puzzles = data.puzzles || [];
+  if (!Array.isArray(puzzles)) {
+    console.warn('[Lichess API] Expected array in data.puzzles, got:', typeof puzzles);
+    return [];
+  }
+
+  const fens = puzzles
+    .map(extractFenFromPuzzle)
     .filter(f => f && f.includes('/'));
+
+  console.log(`[Lichess API] Extracted ${fens.length} FENs from ${puzzles.length} puzzles`);
+  return fens;
 }
 
 async function fetchFromLichess() {
@@ -852,21 +903,51 @@ async function fetchFromLichess() {
   const fens = [], diffs = [];
 
   try {
+    // ── EASY ──
     if (cntE > 0) {
       msg.textContent = `Fetching ${cntE} easy puzzles…`; bar.style.width = '15%';
-      const batch = await fetchBatch(theme, DIFF_MAP.easy, cntE, apiKey);
+      let batch = await fetchBatch(theme, DIFF_MAP.easy, cntE, apiKey);
+      // Fallback: if batch returns fewer than requested, fill with individual calls
+      if (batch.length < cntE) {
+        console.log(`[Fallback] Batch returned ${batch.length}/${cntE} easy, fetching individually…`);
+        while (batch.length < cntE) {
+          const fen = await fetchOnePuzzle(theme, DIFF_MAP.easy, apiKey);
+          if (fen && !batch.includes(fen)) batch.push(fen);
+          else break; // stop if we get duplicates or empty
+        }
+      }
       batch.forEach(f => { fens.push(f); diffs.push('easy'); });
       bar.style.width = '38%';
     }
+
+    // ── MEDIUM ──
     if (cntM > 0) {
       msg.textContent = `Fetching ${cntM} medium puzzles…`; bar.style.width = '42%';
-      const batch = await fetchBatch(theme, DIFF_MAP.medium, cntM, apiKey);
+      let batch = await fetchBatch(theme, DIFF_MAP.medium, cntM, apiKey);
+      if (batch.length < cntM) {
+        console.log(`[Fallback] Batch returned ${batch.length}/${cntM} medium, fetching individually…`);
+        while (batch.length < cntM) {
+          const fen = await fetchOnePuzzle(theme, DIFF_MAP.medium, apiKey);
+          if (fen && !batch.includes(fen)) batch.push(fen);
+          else break;
+        }
+      }
       batch.forEach(f => { fens.push(f); diffs.push('medium'); });
       bar.style.width = '68%';
     }
+
+    // ── HARD ──
     if (cntH > 0) {
       msg.textContent = `Fetching ${cntH} hard puzzles…`; bar.style.width = '72%';
-      const batch = await fetchBatch(theme, DIFF_MAP.hard, cntH, apiKey);
+      let batch = await fetchBatch(theme, DIFF_MAP.hard, cntH, apiKey);
+      if (batch.length < cntH) {
+        console.log(`[Fallback] Batch returned ${batch.length}/${cntH} hard, fetching individually…`);
+        while (batch.length < cntH) {
+          const fen = await fetchOnePuzzle(theme, DIFF_MAP.hard, apiKey);
+          if (fen && !batch.includes(fen)) batch.push(fen);
+          else break;
+        }
+      }
       batch.forEach(f => { fens.push(f); diffs.push('hard'); });
       bar.style.width = '100%';
     }
