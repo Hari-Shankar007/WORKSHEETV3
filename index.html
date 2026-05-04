@@ -112,28 +112,6 @@ textarea.s-input { resize: vertical; min-height: 70px; font-family: 'DM Mono', m
 .source-tab.active { background: var(--gold); color: #0d0f14; font-weight: 600; }
 .source-tab:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── DIFFICULTY CONTROLS ── */
-.diff-controls { display: flex; flex-direction: column; gap: 8px; }
-.diff-row { display: flex; align-items: center; gap: 8px; }
-.diff-color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dot-easy   { background: #4caf50; }
-.dot-medium { background: #ff9800; }
-.dot-hard   { background: #f44336; }
-.diff-label { font-size: 11px; color: var(--text-dim); width: 52px; flex-shrink: 0; }
-.diff-num { width: 60px; padding: 6px 8px; text-align: center; background: var(--surface2); border: 1px solid var(--border-light); border-radius: 6px; color: var(--text); font-size: 12px; font-family: 'DM Sans', sans-serif; outline: none; }
-.diff-num:focus { border-color: var(--gold-dim); box-shadow: 0 0 0 3px var(--gold-glow); }
-.diff-total { font-size: 10px; color: var(--text-muted); text-align: right; }
-.rating-range-display { font-size: 10px; color: var(--gold); letter-spacing: 0.04em; padding: 5px 10px; background: var(--gold-glow); border: 1px solid var(--gold-dim); border-radius: 6px; text-align: center; line-height: 1.7; }
-
-/* ── BUILTIN PANEL ── */
-.builtin-info { background: var(--surface2); border: 1px solid var(--border-light); border-radius: 9px; padding: 12px; font-size: 11px; color: var(--text-dim); line-height: 1.7; }
-.builtin-info strong { color: var(--gold); }
-.builtin-diff-check { display: flex; flex-direction: column; gap: 7px; }
-.builtin-check-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.builtin-check-row input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--gold); cursor: pointer; }
-.builtin-check-label { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
-.builtin-count { font-size: 10px; color: var(--text-muted); margin-left: auto; }
-
 /* ── FETCH PROGRESS ── */
 .fetch-progress { padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border-light); border-radius: 8px; font-size: 11px; color: var(--text-dim); display: none; }
 .fetch-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden; }
@@ -232,7 +210,6 @@ canvas.brd { width: 100%; height: 100%; display: block; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
-<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -323,18 +300,24 @@ canvas.brd { width: 100%; height: 100%; display: block; }
       </div>
 
       <div class="s-field">
-        <div class="s-label">Theme / Tactic</div>
+        <div class="s-label">Theme / Angle</div>
         <select class="s-input" id="lc-theme">
-          <optgroup label="Checkmate">
+          <optgroup label="Mate patterns">
             <option value="mateIn1">Mate in 1</option>
             <option value="mateIn2">Mate in 2</option>
             <option value="mateIn3">Mate in 3</option>
+            <option value="mateIn4">Mate in 4</option>
+            <option value="mateIn5">Mate in 5</option>
             <option value="backRankMate">Back Rank Mate</option>
             <option value="smotheredMate">Smothered Mate</option>
             <option value="anastasiaMate">Anastasia's Mate</option>
             <option value="arabianMate">Arabian Mate</option>
+            <option value="bodenMate">Boden's Mate</option>
+            <option value="doubleBishopMate">Double Bishop Mate</option>
+            <option value="dovetailMate">Dovetail Mate</option>
+            <option value="hookMate">Hook Mate</option>
           </optgroup>
-          <optgroup label="Tactics">
+          <optgroup label="Tactical motifs">
             <option value="pin">Pin</option>
             <option value="fork">Fork</option>
             <option value="skewer">Skewer</option>
@@ -344,50 +327,42 @@ canvas.brd { width: 100%; height: 100%; display: block; }
             <option value="deflection">Deflection</option>
             <option value="interference">Interference</option>
             <option value="xRayAttack">X-Ray Attack</option>
-            <option value="zwischenzug">Zwischenzug</option>
+            <option value="intermezzo">Intermezzo (Zwischenzug)</option>
+            <option value="attraction">Attraction</option>
+            <option value="clearance">Clearance</option>
+            <option value="trappedPiece">Trapped Piece</option>
+            <option value="exposedKing">Exposed King</option>
+            <option value="capturingDefender">Capture the Defender</option>
+            <option value="doubleCheck">Double Check</option>
           </optgroup>
-          <optgroup label="Phase">
+          <optgroup label="Game phase">
             <option value="opening">Opening</option>
             <option value="middlegame">Middlegame</option>
             <option value="endgame">Endgame</option>
+            <option value="rookEndgame">Rook Endgame</option>
+            <option value="bishopEndgame">Bishop Endgame</option>
+            <option value="pawnEndgame">Pawn Endgame</option>
+            <option value="knightEndgame">Knight Endgame</option>
+            <option value="queenEndgame">Queen Endgame</option>
           </optgroup>
           <optgroup label="Other">
-            <option value="attraction">Attraction</option>
-            <option value="clearance">Clearance</option>
             <option value="kingsideAttack">Kingside Attack</option>
             <option value="queensideAttack">Queenside Attack</option>
-            <option value="trappedPiece">Trapped Piece</option>
+            <option value="advancedPawn">Advanced Pawn</option>
+            <option value="attackingF2F7">Attacking f2 or f7</option>
+            <option value="quietMove">Quiet Move</option>
+            <option value="zugzwang">Zugzwang</option>
+            <option value="promotion">Promotion</option>
+            <option value="underPromotion">Under-promotion</option>
+            <option value="castling">Castling</option>
           </optgroup>
         </select>
       </div>
 
-      <div>
-        <div class="s-label" style="margin-bottom:8px">Puzzles by difficulty</div>
-        <div class="diff-controls">
-          <div class="diff-row">
-            <div class="diff-color-dot dot-easy"></div>
-            <span class="diff-label">Easy</span>
-            <input type="number" class="diff-num" id="cnt-easy" value="4" min="0" max="30"/>
-            <span style="font-size:10px;color:var(--text-muted)">puzzles</span>
-          </div>
-          <div class="diff-row">
-            <div class="diff-color-dot dot-medium"></div>
-            <span class="diff-label">Medium</span>
-            <input type="number" class="diff-num" id="cnt-med" value="4" min="0" max="30"/>
-            <span style="font-size:10px;color:var(--text-muted)">puzzles</span>
-          </div>
-          <div class="diff-row">
-            <div class="diff-color-dot dot-hard"></div>
-            <span class="diff-label">Hard</span>
-            <input type="number" class="diff-num" id="cnt-hard" value="4" min="0" max="30"/>
-            <span style="font-size:10px;color:var(--text-muted)">puzzles</span>
-          </div>
-          <div class="diff-total" id="diff-total">12 puzzles total → 2 sheets</div>
-        </div>
-      </div>
-
-      <div class="rating-range-display">
-        Lichess difficulty: easiest · easier · normal · harder · hardest
+      <div class="s-field">
+        <div class="s-label">Number of puzzles</div>
+        <input type="number" class="s-input" id="cnt-total" value="12" min="1" max="60"/>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;" id="sheet-estimate">12 puzzles → 2 sheets</div>
       </div>
 
       <div class="fetch-progress" id="fetch-progress">
@@ -516,48 +491,24 @@ canvas.brd { width: 100%; height: 100%; display: block; }
 
 <script>
 // ── Built-in puzzle library (works fully offline) ──────────────────────────
-// 18 hand-picked positions: 6 easy / 6 medium / 6 hard
 const BUILTIN_PUZZLES = [
-  // ── EASY: Classic opening traps & simple tactical motifs ────────────────
-  // Scholar's Mate — White plays Qxf7#
   { fen: "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4", diff: "easy" },
-  // Fried Liver position — White has Nxf7 sacrifice
   { fen: "r1bqkb1r/ppp2ppp/2n5/3np3/2B5/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6", diff: "easy" },
-  // Italian Game — back-rank pin opportunity
   { fen: "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4", diff: "easy" },
-  // Simple K+R endgame — practice driving away the king
   { fen: "8/8/8/3k4/8/3K4/8/R7 w - - 0 1", diff: "easy" },
-  // K+Q vs K — queen endgame technique
   { fen: "8/8/3k4/8/3Q4/8/8/3K4 w - - 0 1", diff: "easy" },
-  // Ruy Lopez — hanging piece on e5, Black has Nxd4 fork
   { fen: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 4 4", diff: "easy" },
-
-  // ── MEDIUM: Combinations & positional understanding ────────────────────
-  // Open Italian — White has Ng5 with Nxf7 threat
   { fen: "r1bqk2r/pppp1ppp/2n2n2/2b1p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 5 5", diff: "medium" },
-  // Semi-open — pin on d-file, Black must find break
   { fen: "r2qk2r/ppp1bppp/2np1n2/4p1B1/2B1P3/2NP1N2/PPP2PPP/R2QK2R b KQkq - 0 7", diff: "medium" },
-  // Middle-game — pawn break and piece coordination
   { fen: "r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQ - 0 7", diff: "medium" },
-  // Rook endgame — Lucena-style position
   { fen: "8/8/1k6/8/8/1K6/R7/8 w - - 0 1", diff: "medium" },
-  // Pawn structure — passed pawn race, both sides queening
   { fen: "8/5pk1/6pp/8/6PP/6PK/8/8 w - - 0 1", diff: "medium" },
-  // Queen's Gambit — central tension and piece activity
   { fen: "r2q1rk1/pp2bppp/2n1pn2/3p4/3P1B2/2NBP3/PP3PPP/R2QK2R w KQ - 0 10", diff: "medium" },
-
-  // ── HARD: Complex combinations & deep endgame technique ───────────────
-  // Sicilian Dragon — attack vs defence
   { fen: "r4rk1/1pp2ppp/p2p1n2/4p3/2B1P3/P1P2N2/1P3PPP/R2QR1K1 w - - 2 14", diff: "hard" },
-  // Nimzo-Indian — pawn structure and piece play
   { fen: "r1bq1rk1/pp1n1ppp/2pbpn2/3p4/2PP4/2NBPN2/PP3PPP/R1BQR1K1 w - - 0 9", diff: "hard" },
-  // Complex tactical middlegame — Black bishop pair
   { fen: "r2q1rk1/pp3ppp/2n1pn2/2bp4/4P1b1/1NN1BP2/PPP1BPPP/R2QK2R b KQ - 0 10", diff: "hard" },
-  // R+P endgame — Philidor position defence
   { fen: "8/8/8/3k4/3p4/8/3K4/3R4 w - - 0 1", diff: "hard" },
-  // English Opening — queenside squeeze
   { fen: "2r2rk1/pb3ppp/1p2pn2/n2p4/2PP4/PP2BN2/5PPP/R2QRBK1 w - - 1 16", diff: "hard" },
-  // King's Indian Attack vs French — mutual attacks
   { fen: "r1bq1rk1/pp3ppp/2n1pn2/3p4/3P1B2/2N1PN2/PP3PPP/R2QKB1R w KQ - 0 9", diff: "hard" },
 ];
 
@@ -572,24 +523,17 @@ let noteStates   = [];
 let currentTab = 'lichess';
 let keyVerified = false;
 
-// ── File protocol detection ───────────────────────────────────────────────
 const IS_FILE_PROTOCOL = window.location.protocol === 'file:';
 
 function applyFileProtocolUI() {
   if (!IS_FILE_PROTOCOL) return;
-
-  // Show the warning banner
   const banner = document.getElementById('file-proto-banner');
   if (banner) banner.style.display = 'block';
-
-  // Dim (but don't disable) the Lichess tab
   const tab = document.getElementById('tab-lichess');
   if (tab) {
     tab.style.opacity = '0.5';
     tab.title = 'Lichess API is blocked when opening from file://. Use Built-in or Manual instead.';
   }
-
-  // Auto-switch to built-in tab
   switchTab('builtin');
 }
 
@@ -687,7 +631,6 @@ document.getElementById('api-key-toggle').addEventListener('click', () => {
 document.getElementById('api-key-input').addEventListener('input', () => {
   const val = getApiKey();
   if (!val) { setKeyStatus('', 'Enter your personal access token'); return; }
-  // Quick format validation hint without blocking
   if (!isTokenFormatValid(val)) {
     setKeyStatus('', 'Token should start with lip_ (20+ chars)');
     return;
@@ -695,19 +638,10 @@ document.getElementById('api-key-input').addEventListener('input', () => {
   setKeyStatus('', 'Token format looks good — click Verify to test');
 });
 
-/**
- * Validate Lichess token format before making network requests.
- * Lichess personal access tokens start with "lip_" followed by 20+ alphanumeric chars.
- */
 function isTokenFormatValid(token) {
   return /^lip_[a-zA-Z0-9]{20,}$/.test(token);
 }
 
-/**
- * Detect if an error is CORS-related based on its type and message.
- * CORS errors throw TypeError with "Failed to fetch" in most browsers,
- * but the message isn't reliably detectable. We also check for network indicators.
- */
 function isCORSError(error) {
   if (!error) return false;
   const msg = (error.message || '').toLowerCase();
@@ -722,23 +656,14 @@ function isCORSError(error) {
 }
 
 async function verifyKey() {
-  // 1. Block file:// protocol immediately
   if (IS_FILE_PROTOCOL) {
     setKeyStatus('err', 'Cannot verify from file:// — browser blocks CORS. See warning above.');
     return;
   }
 
   const key = getApiKey();
-
-  // 2. Validate token format BEFORE any network request
-  if (!key) {
-    setKeyStatus('err', 'Please enter a token first');
-    return;
-  }
-  if (!isTokenFormatValid(key)) {
-    setKeyStatus('err', 'Invalid format — token must start with lip_ (20+ chars)');
-    return;
-  }
+  if (!key) { setKeyStatus('err', 'Please enter a token first'); return; }
+  if (!isTokenFormatValid(key)) { setKeyStatus('err', 'Invalid format — token must start with lip_ (20+ chars)'); return; }
 
   setKeyStatus('busy', 'Verifying token…');
 
@@ -762,7 +687,6 @@ async function verifyKey() {
     const user = data.username || 'Unknown';
     setKeyStatus('ok', `Verified as @${user}`);
   } catch (e) {
-    // 3. Better CORS / network error detection
     if (isCORSError(e)) {
       setKeyStatus('err', 'CORS/network blocked — token format OK but browser blocked request. Try different browser or download file.');
     } else {
@@ -771,50 +695,33 @@ async function verifyKey() {
   }
 }
 
-// ── Difficulty total display ───────────────────────────
-function updateDiffTotal() {
-  const e = parseInt(document.getElementById('cnt-easy').value)  || 0;
-  const m = parseInt(document.getElementById('cnt-med').value)   || 0;
-  const h = parseInt(document.getElementById('cnt-hard').value)  || 0;
-  const tot = e + m + h;
-  const sheets = Math.max(1, Math.ceil(tot / 6));
-  document.getElementById('diff-total').textContent =
-    `${tot} puzzle${tot !== 1 ? 's' : ''} total → ${sheets} sheet${sheets !== 1 ? 's' : ''}`;
+// ── Puzzle count estimate ──────────────────────────────
+function updateSheetEstimate() {
+  const count = parseInt(document.getElementById('cnt-total').value) || 0;
+  const sheets = Math.max(1, Math.ceil(count / 6));
+  document.getElementById('sheet-estimate').textContent =
+    `${count} puzzle${count !== 1 ? 's' : ''} → ${sheets} sheet${sheets !== 1 ? 's' : ''}`;
 }
-['cnt-easy','cnt-med','cnt-hard'].forEach(id =>
-  document.getElementById(id).addEventListener('input', updateDiffTotal));
+document.getElementById('cnt-total').addEventListener('input', updateSheetEstimate);
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FIXED LICHESS API FETCH
+// LICHESS API FETCH — theme only, no difficulty
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Lichess API difficulty is numeric: 1 (easiest) → 4 (hardest)
-const DIFF_MAP = { easy: 1, medium: 2, hard: 4 };
-
-/**
- * Extract FEN from a Lichess puzzle response object.
- * Handles multiple response shapes from different endpoints.
- */
 function extractFenFromPuzzle(p) {
   if (!p) return '';
-  // Standard batch/next response: puzzle.game.fen or puzzle.fen
   if (p.puzzle) {
     if (typeof p.puzzle.fen === 'string') return p.puzzle.fen;
     if (p.puzzle.game && typeof p.puzzle.game.fen === 'string') return p.puzzle.game.fen;
   }
-  // Flat structure fallback
   if (typeof p.fen === 'string') return p.fen;
   if (p.game && typeof p.game.fen === 'string') return p.game.fen;
   return '';
 }
 
-/**
- * Fetch a single puzzle from /api/puzzle/next (supports angle + difficulty filtering)
- */
-async function fetchOnePuzzle(theme, difficultyNum, apiKey) {
+async function fetchOnePuzzle(theme, apiKey) {
   const params = new URLSearchParams();
   if (theme) params.set('angle', theme);
-  if (difficultyNum) params.set('difficulty', String(difficultyNum));
   const url = `https://lichess.org/api/puzzle/next?${params.toString()}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
@@ -825,18 +732,12 @@ async function fetchOnePuzzle(theme, difficultyNum, apiKey) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ' — ' + body.slice(0, 120) : ''}`);
   }
   const data = await res.json();
-  const fen = extractFenFromPuzzle(data);
-  return fen || '';
+  return extractFenFromPuzzle(data);
 }
 
-/**
- * Fetch multiple puzzles using the batch endpoint.
- * The batch endpoint is: GET /api/puzzle/batch/{nb}
- * Query params: angle (theme), difficulty (1-4)
- */
-async function fetchBatch(theme, difficultyNum, count, apiKey) {
+async function fetchBatch(theme, count, apiKey) {
   if (count <= 0) return [];
-  const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}&difficulty=${difficultyNum}`;
+  const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
@@ -850,9 +751,8 @@ async function fetchBatch(theme, difficultyNum, count, apiKey) {
   }
 
   const data = await res.json();
-  console.log('[Lichess API] Batch response keys:', Object.keys(data));
+  console.log('[Lichess API] Response keys:', Object.keys(data));
 
-  // The batch endpoint returns { puzzles: [ { puzzle: { fen, ... }, ... }, ... ] }
   const puzzles = data.puzzles || [];
   if (!Array.isArray(puzzles)) {
     console.warn('[Lichess API] Expected array in data.puzzles, got:', typeof puzzles);
@@ -874,8 +774,6 @@ async function fetchFromLichess() {
   }
 
   const apiKey = getApiKey();
-
-  // Validate token format before any network request
   if (!apiKey) {
     alert('Please enter your Lichess API token.\n\nCreate one at: https://lichess.org/account/oauth/token/create\n(No special scopes required.)');
     return;
@@ -886,11 +784,8 @@ async function fetchFromLichess() {
   }
 
   const theme = document.getElementById('lc-theme').value;
-  const cntE  = parseInt(document.getElementById('cnt-easy').value)  || 0;
-  const cntM  = parseInt(document.getElementById('cnt-med').value)   || 0;
-  const cntH  = parseInt(document.getElementById('cnt-hard').value)  || 0;
-  const total = cntE + cntM + cntH;
-  if (total === 0) { alert('Please set at least one puzzle count above zero.'); return; }
+  const count = parseInt(document.getElementById('cnt-total').value) || 0;
+  if (count <= 0) { alert('Please set the number of puzzles above zero.'); return; }
 
   const btn      = document.getElementById('fetch-btn');
   const progress = document.getElementById('fetch-progress');
@@ -898,75 +793,44 @@ async function fetchFromLichess() {
   const msg      = document.getElementById('fetch-msg');
 
   btn.disabled = true; btn.textContent = '⏳ Fetching…';
-  progress.style.display = 'block'; bar.style.width = '5%';
-
-  const fens = [], diffs = [];
+  progress.style.display = 'block'; bar.style.width = '10%';
+  msg.textContent = `Fetching ${count} ${theme} puzzles…`;
 
   try {
-    // ── EASY ──
-    if (cntE > 0) {
-      msg.textContent = `Fetching ${cntE} easy puzzles…`; bar.style.width = '15%';
-      let batch = await fetchBatch(theme, DIFF_MAP.easy, cntE, apiKey);
-      // Fallback: if batch returns fewer than requested, fill with individual calls
-      if (batch.length < cntE) {
-        console.log(`[Fallback] Batch returned ${batch.length}/${cntE} easy, fetching individually…`);
-        while (batch.length < cntE) {
-          const fen = await fetchOnePuzzle(theme, DIFF_MAP.easy, apiKey);
-          if (fen && !batch.includes(fen)) batch.push(fen);
-          else break; // stop if we get duplicates or empty
-        }
+    let batch = await fetchBatch(theme, count, apiKey);
+    bar.style.width = '70%';
+
+    // Fallback: fill individually if batch came up short
+    if (batch.length < count) {
+      console.log(`[Fallback] Batch returned ${batch.length}/${count}, fetching individually…`);
+      const seen = new Set(batch);
+      while (batch.length < count) {
+        const fen = await fetchOnePuzzle(theme, apiKey);
+        if (fen && !seen.has(fen)) { batch.push(fen); seen.add(fen); }
+        else if (!fen) break;
+        // safety break to avoid infinite loop
+        if (seen.size > count + 5) break;
       }
-      batch.forEach(f => { fens.push(f); diffs.push('easy'); });
-      bar.style.width = '38%';
     }
 
-    // ── MEDIUM ──
-    if (cntM > 0) {
-      msg.textContent = `Fetching ${cntM} medium puzzles…`; bar.style.width = '42%';
-      let batch = await fetchBatch(theme, DIFF_MAP.medium, cntM, apiKey);
-      if (batch.length < cntM) {
-        console.log(`[Fallback] Batch returned ${batch.length}/${cntM} medium, fetching individually…`);
-        while (batch.length < cntM) {
-          const fen = await fetchOnePuzzle(theme, DIFF_MAP.medium, apiKey);
-          if (fen && !batch.includes(fen)) batch.push(fen);
-          else break;
-        }
-      }
-      batch.forEach(f => { fens.push(f); diffs.push('medium'); });
-      bar.style.width = '68%';
-    }
+    bar.style.width = '100%';
 
-    // ── HARD ──
-    if (cntH > 0) {
-      msg.textContent = `Fetching ${cntH} hard puzzles…`; bar.style.width = '72%';
-      let batch = await fetchBatch(theme, DIFF_MAP.hard, cntH, apiKey);
-      if (batch.length < cntH) {
-        console.log(`[Fallback] Batch returned ${batch.length}/${cntH} hard, fetching individually…`);
-        while (batch.length < cntH) {
-          const fen = await fetchOnePuzzle(theme, DIFF_MAP.hard, apiKey);
-          if (fen && !batch.includes(fen)) batch.push(fen);
-          else break;
-        }
-      }
-      batch.forEach(f => { fens.push(f); diffs.push('hard'); });
-      bar.style.width = '100%';
-    }
-
-    if (fens.length === 0) {
-      msg.textContent = '⚠ No puzzles returned. Try a different theme or difficulty.';
+    if (batch.length === 0) {
+      msg.textContent = '⚠ No puzzles returned. Try a different theme.';
       setTimeout(() => { progress.style.display = 'none'; }, 5000);
       return;
     }
 
-    msg.textContent = `✓ Fetched ${fens.length} puzzle${fens.length !== 1 ? 's' : ''} successfully!`;
+    msg.textContent = `✓ Fetched ${batch.length} puzzle${batch.length !== 1 ? 's' : ''} successfully!`;
     setTimeout(() => { progress.style.display = 'none'; }, 2500);
-    allPuzzles = fens; allDiffs = diffs;
-    document.getElementById('fen-ta').value = fens.join('\n');
+
+    allPuzzles = batch;
+    allDiffs   = batch.map(() => ''); // no difficulty label for theme-only fetches
+    document.getElementById('fen-ta').value = batch.join('\n');
     updateCount(); doGenerate();
   } catch (e) {
     bar.style.width = '0%';
     const errMsg = e.message || 'Fetch failed.';
-    // Better CORS detection in fetch error handling too
     if (isCORSError(e)) {
       msg.textContent = '✗ CORS/Network blocked — request failed silently. If on GitHub Pages, try a local server or Built-in puzzles.';
     } else {
@@ -1034,7 +898,6 @@ function drawBoard(canvas, fen, flipped) {
     const img = PIECES[key];
     if (img) ctx.drawImage(img, c * sq, r * sq, sq, sq);
     else {
-      // Fallback: draw piece as unicode text if image not loaded (works offline)
       const unicode = { wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙', bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟' };
       const glyph = unicode[key] || '';
       if (glyph) {
@@ -1261,7 +1124,7 @@ document.getElementById('print-btn').addEventListener('click', () => {
 document.getElementById('clear-btn').addEventListener('click', () => {
   document.getElementById('fen-ta').value = '';
   allPuzzles = []; allDiffs = []; turnStates = []; flipStates = []; answerStates = []; noteStates = [];
-  updateCount(); updateDiffTotal();
+  updateCount();
   buildEmptyState(document.getElementById('sheets-wrap'));
   document.getElementById('nav-wrap').innerHTML = '';
   document.getElementById('fetch-progress').style.display = 'none';
@@ -1299,7 +1162,7 @@ document.getElementById('logo-file').addEventListener('change', e => {
 });
 
 // ── Init ───────────────────────────────────────────────
-updateDiffTotal();
+updateSheetEstimate();
 updateBuiltInCount();
 applyFileProtocolUI();
 if (!IS_FILE_PROTOCOL) switchTab('lichess');
