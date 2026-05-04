@@ -386,7 +386,7 @@ canvas.brd { width: 100%; height: 100%; display: block; }
       </div>
 
       <div class="rating-range-display">
-        Easy: 600 – 1200 &nbsp;·&nbsp; Medium: 1200 – 1800 &nbsp;·&nbsp; Hard: 1800 – 2500
+        Lichess difficulty: easiest · easier · normal · harder · hardest
       </div>
 
       <div class="fetch-progress" id="fetch-progress">
@@ -571,7 +571,7 @@ let noteStates   = [];
 let currentTab = 'lichess';
 let keyVerified = false;
 
-// ── File protocol detection (root cause fix) ───────────────────────────────
+// ── File protocol detection ───────────────────────────────────────────────
 const IS_FILE_PROTOCOL = window.location.protocol === 'file:';
 
 function applyFileProtocolUI() {
@@ -581,7 +581,7 @@ function applyFileProtocolUI() {
   const banner = document.getElementById('file-proto-banner');
   if (banner) banner.style.display = 'block';
 
-  // Dim (but don't disable) the Lichess tab — users can still paste manual FENs
+  // Dim (but don't disable) the Lichess tab
   const tab = document.getElementById('tab-lichess');
   if (tab) {
     tab.style.opacity = '0.5';
@@ -686,31 +686,86 @@ document.getElementById('api-key-toggle').addEventListener('click', () => {
 document.getElementById('api-key-input').addEventListener('input', () => {
   const val = getApiKey();
   if (!val) { setKeyStatus('', 'Enter your personal access token'); return; }
-  setKeyStatus('', 'Token entered — click Verify to test');
+  // Quick format validation hint without blocking
+  if (!isTokenFormatValid(val)) {
+    setKeyStatus('', 'Token should start with lip_ (20+ chars)');
+    return;
+  }
+  setKeyStatus('', 'Token format looks good — click Verify to test');
 });
 
+/**
+ * Validate Lichess token format before making network requests.
+ * Lichess personal access tokens start with "lip_" followed by 20+ alphanumeric chars.
+ */
+function isTokenFormatValid(token) {
+  return /^lip_[a-zA-Z0-9]{20,}$/.test(token);
+}
+
+/**
+ * Detect if an error is CORS-related based on its type and message.
+ * CORS errors throw TypeError with "Failed to fetch" in most browsers,
+ * but the message isn't reliably detectable. We also check for network indicators.
+ */
+function isCORSError(error) {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return (
+    error.name === 'TypeError' ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('cors') ||
+    msg.includes('network') ||
+    msg.includes('blocked')
+  );
+}
+
 async function verifyKey() {
+  // 1. Block file:// protocol immediately
   if (IS_FILE_PROTOCOL) {
     setKeyStatus('err', 'Cannot verify from file:// — browser blocks CORS. See warning above.');
     return;
   }
+
   const key = getApiKey();
-  if (!key) { setKeyStatus('err', 'Please enter a token first'); return; }
+
+  // 2. Validate token format BEFORE any network request
+  if (!key) {
+    setKeyStatus('err', 'Please enter a token first');
+    return;
+  }
+  if (!isTokenFormatValid(key)) {
+    setKeyStatus('err', 'Invalid format — token must start with lip_ (20+ chars)');
+    return;
+  }
+
   setKeyStatus('busy', 'Verifying token…');
+
   try {
     const res = await fetch('https://lichess.org/api/account', {
       headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
     });
-    if (res.status === 401) { setKeyStatus('err', 'Invalid token — check and retry'); return; }
-    if (!res.ok) { setKeyStatus('err', `Error ${res.status} — try again`); return; }
+    if (res.status === 401) {
+      setKeyStatus('err', 'Invalid token — rejected by Lichess (401). Recreate at lichess.org/account/oauth/token');
+      return;
+    }
+    if (res.status === 403) {
+      setKeyStatus('err', 'Token valid but lacks scope — recreate with puzzle:read');
+      return;
+    }
+    if (!res.ok) {
+      setKeyStatus('err', `Lichess error ${res.status} — try again later`);
+      return;
+    }
     const data = await res.json();
     const user = data.username || 'Unknown';
-    setKeyStatus('ok', `✓ Verified as @${user}`);
-  } catch(e) {
-    if (IS_FILE_PROTOCOL) {
-      setKeyStatus('err', 'Blocked by CORS (file:// origin) — serve from a web server');
+    setKeyStatus('ok', `Verified as @${user}`);
+  } catch (e) {
+    // 3. Better CORS / network error detection
+    if (isCORSError(e)) {
+      setKeyStatus('err', 'CORS/network blocked — token format OK but browser blocked request. Try different browser or download file.');
     } else {
-      setKeyStatus('err', 'Network error — check connection');
+      setKeyStatus('err', 'Network error — check connection and try again');
     }
   }
 }
@@ -729,19 +784,36 @@ function updateDiffTotal() {
   document.getElementById(id).addEventListener('input', updateDiffTotal));
 
 // ── Lichess API fetch ──────────────────────────────────
-const DIFF_RANGES = { easy: [600,1200], medium: [1200,1800], hard: [1800,2500] };
+// Maps UI difficulty labels to Lichess API difficulty enum values
+// Lichess API: easiest | easier | normal | harder | hardest
+const DIFF_MAP = { easy: 'easiest', medium: 'normal', hard: 'hardest' };
 
-async function fetchBatch(theme, minRating, maxRating, count, apiKey) {
+async function fetchBatch(theme, difficulty, count, apiKey) {
   if (count <= 0) return [];
-  const url = `https://lichess.org/api/puzzle/batch/${encodeURIComponent(theme)}?nb=${count}&ratingMin=${minRating}&ratingMax=${maxRating}`;
+  const url = `https://lichess.org/api/puzzle/batch/${encodeURIComponent(theme)}?nb=${count}&difficulty=${difficulty}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
   const res = await fetch(url, { headers });
-  if (res.status === 401) throw new Error('Invalid or missing API token.');
+  if (res.status === 401) throw new Error('Invalid or missing API token — check your token at lichess.org/account/oauth/token');
   if (res.status === 429) throw new Error('Rate limited by Lichess. Wait a minute and retry.');
-  if (!res.ok) { const body = await res.text().catch(() => ''); throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ' — ' + body.slice(0,120) : ''}`); }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${res.statusText}${body ? ' — ' + body.slice(0, 120) : ''}`);
+  }
   const data = await res.json();
-  return (data.puzzles || []).map(p => p.puzzle?.fen || p.fen || '').filter(f => f && f.includes('/'));
+  // Robust FEN extraction: p.puzzle.fen is the standard Lichess response shape,
+  // with fallbacks for alternate structures
+  return (data.puzzles || [])
+    .map(p => {
+      // Primary: nested puzzle object (standard Lichess batch response)
+      if (p.puzzle && typeof p.puzzle.fen === 'string') return p.puzzle.fen;
+      // Fallback: flat fen property
+      if (typeof p.fen === 'string') return p.fen;
+      // Fallback: try p.game.fen (alternate API shape)
+      if (p.game && typeof p.game.fen === 'string') return p.game.fen;
+      return '';
+    })
+    .filter(f => f && f.includes('/'));
 }
 
 async function fetchFromLichess() {
@@ -751,8 +823,14 @@ async function fetchFromLichess() {
   }
 
   const apiKey = getApiKey();
+
+  // Validate token format before any network request
   if (!apiKey) {
     alert('Please enter your Lichess API token.\n\nCreate one at: https://lichess.org/account/oauth/token/create\n(No special scopes required.)');
+    return;
+  }
+  if (!isTokenFormatValid(apiKey)) {
+    alert('Token format looks wrong — it should start with "lip_" followed by 20+ letters/numbers.\n\nGet a fresh token from: https://lichess.org/account/oauth/token/create');
     return;
   }
 
@@ -776,25 +854,25 @@ async function fetchFromLichess() {
   try {
     if (cntE > 0) {
       msg.textContent = `Fetching ${cntE} easy puzzles…`; bar.style.width = '15%';
-      const batch = await fetchBatch(theme, DIFF_RANGES.easy[0], DIFF_RANGES.easy[1], cntE, apiKey);
+      const batch = await fetchBatch(theme, DIFF_MAP.easy, cntE, apiKey);
       batch.forEach(f => { fens.push(f); diffs.push('easy'); });
       bar.style.width = '38%';
     }
     if (cntM > 0) {
       msg.textContent = `Fetching ${cntM} medium puzzles…`; bar.style.width = '42%';
-      const batch = await fetchBatch(theme, DIFF_RANGES.medium[0], DIFF_RANGES.medium[1], cntM, apiKey);
+      const batch = await fetchBatch(theme, DIFF_MAP.medium, cntM, apiKey);
       batch.forEach(f => { fens.push(f); diffs.push('medium'); });
       bar.style.width = '68%';
     }
     if (cntH > 0) {
       msg.textContent = `Fetching ${cntH} hard puzzles…`; bar.style.width = '72%';
-      const batch = await fetchBatch(theme, DIFF_RANGES.hard[0], DIFF_RANGES.hard[1], cntH, apiKey);
+      const batch = await fetchBatch(theme, DIFF_MAP.hard, cntH, apiKey);
       batch.forEach(f => { fens.push(f); diffs.push('hard'); });
       bar.style.width = '100%';
     }
 
     if (fens.length === 0) {
-      msg.textContent = '⚠ No puzzles returned. Try a different theme or rating range.';
+      msg.textContent = '⚠ No puzzles returned. Try a different theme or difficulty.';
       setTimeout(() => { progress.style.display = 'none'; }, 5000);
       return;
     }
@@ -804,12 +882,14 @@ async function fetchFromLichess() {
     allPuzzles = fens; allDiffs = diffs;
     document.getElementById('fen-ta').value = fens.join('\n');
     updateCount(); doGenerate();
-  } catch(e) {
+  } catch (e) {
     bar.style.width = '0%';
     const errMsg = e.message || 'Fetch failed.';
-    msg.textContent = '✗ ' + errMsg;
-    if (errMsg.toLowerCase().includes('cors') || errMsg.toLowerCase().includes('failed to fetch')) {
-      msg.textContent += ' (CORS blocked — are you on file://?  Use Built-in tab instead.)';
+    // Better CORS detection in fetch error handling too
+    if (isCORSError(e)) {
+      msg.textContent = '✗ CORS/Network blocked — request failed silently. If on GitHub Pages, try a local server or Built-in puzzles.';
+    } else {
+      msg.textContent = '✗ ' + errMsg;
     }
     setTimeout(() => { progress.style.display = 'none'; }, 8000);
   } finally {
@@ -1140,7 +1220,7 @@ document.getElementById('logo-file').addEventListener('change', e => {
 // ── Init ───────────────────────────────────────────────
 updateDiffTotal();
 updateBuiltInCount();
-applyFileProtocolUI();  // ← file:// detection happens here
+applyFileProtocolUI();
 if (!IS_FILE_PROTOCOL) switchTab('lichess');
 buildEmptyState(document.getElementById('sheets-wrap'));
 </script>
