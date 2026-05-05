@@ -714,11 +714,29 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 function pgnToFen(pgn, initialPly) {
   try {
     const chess = new Chess();
-    // Strip move numbers like "1." "2." "10..." before indexing
-    const moves = pgn.trim().split(/\s+/).filter(t => !/^\d+\.+$/.test(t));
-    for (let i = 0; i < initialPly && i < moves.length; i++) {
-      const m = chess.move(moves[i]);
-      if (!m) return null;
+    const tokens = pgn.trim().split(/\s+/).filter(t => !/^\d+\.+$/.test(t));
+    let played = 0;
+    for (let i = 0; i < tokens.length && played < initialPly; i++) {
+      const tok = tokens[i];
+      let m = null;
+
+      // Try SAN first (e.g. "e4", "Nf3", "O-O")
+      m = chess.move(tok);
+
+      // If SAN fails, try UCI format (e.g. "e2e4", "g1f3", "e7e8q")
+      if (!m && /^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/.test(tok)) {
+        m = chess.move({
+          from: tok.slice(0, 2),
+          to:   tok.slice(2, 4),
+          promotion: tok[4] ? tok[4].toLowerCase() : undefined
+        });
+      }
+
+      if (!m) {
+        console.warn('pgnToFen: failed to parse move token:', tok);
+        return null;
+      }
+      played++;
     }
     return chess.fen();
   } catch (e) {
