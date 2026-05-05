@@ -6,8 +6,6 @@
 <title>Chess Puzzle Worksheet Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- chess.js for PGN → FEN conversion -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
 <style>
 :root {
   --bg:           #0d0f14;
@@ -101,52 +99,6 @@ textarea.s-input { resize: vertical; min-height: 70px; font-family: 'DM Mono', m
 .btn-full { width: 100%; }
 .btn-row { display: flex; gap: 8px; }
 .btn-row .btn { flex: 1; }
-
-/* ── PGN CONVERTER BOX ── */
-.pgn-converter-box {
-  background: var(--surface2);
-  border: 1px solid var(--border-light);
-  border-radius: 9px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.pgn-converter-box .s-label { margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; }
-.pgn-badge {
-  background: rgba(201,168,76,0.15);
-  border: 1px solid var(--gold-dim);
-  color: var(--gold);
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.06em;
-}
-.pgn-textarea { min-height: 80px; font-family: 'DM Mono', monospace; font-size: 10px; line-height: 1.6; }
-.pgn-status {
-  font-size: 10px;
-  line-height: 1.5;
-  padding: 6px 8px;
-  border-radius: 5px;
-  display: none;
-}
-.pgn-status.success { background: rgba(39,174,96,0.12); color: #5dbb85; border: 1px solid rgba(39,174,96,0.25); display: block; }
-.pgn-status.error   { background: rgba(192,57,43,0.12);  color: #e07070; border: 1px solid rgba(192,57,43,0.25);  display: block; }
-.pgn-btn-row { display: flex; gap: 6px; }
-.pgn-btn-row .btn { flex: 1; font-size: 11px; padding: 7px 10px; }
-.pgn-mode-tabs {
-  display: flex; gap: 3px; padding: 2px;
-  background: rgba(0,0,0,0.2); border-radius: 6px;
-  border: 1px solid var(--border);
-}
-.pgn-mode-tab {
-  flex: 1; padding: 4px 6px; border: none; background: transparent;
-  color: var(--text-muted); font-size: 9px; font-weight: 600;
-  border-radius: 5px; cursor: pointer; font-family: 'DM Sans', sans-serif;
-  transition: all 0.12s; text-transform: uppercase; letter-spacing: 0.06em;
-}
-.pgn-mode-tab.active { background: var(--gold); color: #0d0f14; }
 
 /* ── FILE UPLOAD ── */
 .upload-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; background: var(--surface2); border: 1px dashed var(--border-light); border-radius: 7px; cursor: pointer; font-size: 11px; font-weight: 500; color: var(--text-muted); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
@@ -462,49 +414,12 @@ canvas.brd { width: 100%; height: 100%; display: block; }
 
     <!-- ── MANUAL PANEL ── -->
     <div id="panel-manual" class="s-group" style="display:none">
-
-      <!-- PGN → FEN CONVERTER BOX -->
-      <div class="pgn-converter-box">
-        <div class="s-label">
-          PGN → FEN Converter
-          <span class="pgn-badge">NEW</span>
-        </div>
-
-        <!-- Mode tabs: final position vs. move selector -->
-        <div class="pgn-mode-tabs">
-          <button class="pgn-mode-tab active" id="pgn-mode-final" onclick="setPgnMode('final')">Final pos.</button>
-          <button class="pgn-mode-tab" id="pgn-mode-after" onclick="setPgnMode('after')">After move N</button>
-          <button class="pgn-mode-tab" id="pgn-mode-all" onclick="setPgnMode('all')">All moves</button>
-        </div>
-
-        <!-- Move number input (shown only in "after move" mode) -->
-        <div id="pgn-move-n-wrap" style="display:none">
-          <div class="s-label" style="margin-bottom:4px">Extract position after move</div>
-          <input type="number" class="s-input" id="pgn-move-n" value="10" min="1" placeholder="Move number"/>
-        </div>
-
-        <textarea class="s-input pgn-textarea" id="pgn-input"
-          placeholder="Paste PGN here…&#10;&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"></textarea>
-
-        <div class="pgn-btn-row">
-          <label class="btn btn-outline" for="pgn-file-input" style="font-size:11px;padding:7px 10px;cursor:pointer;">
-            📄 Load .pgn
-          </label>
-          <input type="file" id="pgn-file-input" accept=".pgn,.txt,text/plain" style="display:none"/>
-          <button class="btn btn-gold" onclick="convertPgn()">⇄ Convert</button>
-          <button class="btn btn-outline" onclick="clearPgnInput()" title="Clear PGN input">✕</button>
-        </div>
-
-        <div class="pgn-status" id="pgn-status"></div>
-      </div>
-
-      <!-- FEN list -->
       <div class="s-field">
         <div class="s-label" style="display:flex;align-items:center;gap:6px">
           FEN list — one per line
           <span class="fen-count-badge" id="fen-count">0</span>
         </div>
-        <textarea class="s-input" id="fen-ta" placeholder="Paste FENs here, one per line…&#10;&#10;(Converted PGN FENs will appear here)"></textarea>
+        <textarea class="s-input" id="fen-ta" placeholder="Paste FENs here, one per line…"></textarea>
       </div>
       <label class="upload-btn" for="fen-file" id="fen-file-lbl">
         <span>📄</span> Upload .txt / .pgn file
@@ -607,7 +522,6 @@ let answerStates = [];
 let noteStates   = [];
 let currentTab = 'lichess';
 let keyVerified = false;
-let pgnMode = 'final'; // 'final' | 'after' | 'all'
 
 const IS_FILE_PROTOCOL = window.location.protocol === 'file:';
 
@@ -637,129 +551,6 @@ const pieceImagesReady = Promise.all(
     img.src = `${BASE_URL}${key}.svg`;
   }))
 );
-
-// ══════════════════════════════════════════════════════════════
-// PGN → FEN CONVERTER  (uses chess.js loaded via CDN)
-// ══════════════════════════════════════════════════════════════
-
-function setPgnMode(mode) {
-  pgnMode = mode;
-  document.getElementById('pgn-mode-final').classList.toggle('active', mode === 'final');
-  document.getElementById('pgn-mode-after').classList.toggle('active', mode === 'after');
-  document.getElementById('pgn-mode-all').classList.toggle('active', mode === 'all');
-  document.getElementById('pgn-move-n-wrap').style.display = mode === 'after' ? 'block' : 'none';
-}
-
-function setPgnStatus(type, msg) {
-  const el = document.getElementById('pgn-status');
-  el.className = 'pgn-status ' + type;
-  el.textContent = msg;
-}
-
-function clearPgnInput() {
-  document.getElementById('pgn-input').value = '';
-  const el = document.getElementById('pgn-status');
-  el.className = 'pgn-status';
-  el.textContent = '';
-}
-
-/**
- * Core converter: given raw PGN text, returns an array of FEN strings
- * depending on the active mode (final / after-move-N / all-moves).
- */
-function pgnToFens(pgn) {
-  if (typeof Chess === 'undefined') {
-    throw new Error('chess.js not loaded — check your internet connection.');
-  }
-
-  pgn = pgn.trim();
-  if (!pgn) throw new Error('PGN input is empty.');
-
-  // chess.js 0.13.x uses new Chess() + load_pgn()
-  const game = new Chess();
-  const loaded = game.load_pgn(pgn, { sloppy: true });
-  if (!loaded) {
-    // Try stripping headers and loading moves only
-    const movesOnly = pgn.replace(/\[.*?\]\s*/g, '').trim();
-    const ok2 = game.load_pgn(movesOnly, { sloppy: true });
-    if (!ok2) throw new Error('Invalid or unrecognised PGN format.');
-  }
-
-  if (pgnMode === 'final') {
-    return [game.fen()];
-  }
-
-  // Reconstruct move-by-move history for "after" and "all" modes
-  const history = game.history({ verbose: true });
-  if (history.length === 0) throw new Error('PGN contains no moves.');
-
-  const replay = new Chess(); // starts at initial position
-  const fens = [];
-
-  for (let i = 0; i < history.length; i++) {
-    replay.move(history[i]);
-
-    if (pgnMode === 'all') {
-      fens.push(replay.fen());
-    } else if (pgnMode === 'after') {
-      const targetMove = parseInt(document.getElementById('pgn-move-n').value) || 1;
-      // Each full move = 2 half-moves; after move N white = index 2N-2, after move N black = 2N-1
-      const halfMoveTarget = targetMove * 2; // capture both halves of that move number
-      if (i + 1 === halfMoveTarget - 1 || i + 1 === halfMoveTarget) {
-        fens.push(replay.fen());
-      }
-    }
-  }
-
-  if (pgnMode === 'after' && fens.length === 0) {
-    const targetMove = parseInt(document.getElementById('pgn-move-n').value) || 1;
-    throw new Error(`Move ${targetMove} not found — game only has ${Math.ceil(history.length / 2)} moves.`);
-  }
-
-  return fens.length > 0 ? fens : [game.fen()];
-}
-
-/**
- * Called by the Convert button — appends the extracted FEN(s) to the FEN textarea.
- */
-function convertPgn() {
-  const pgn = document.getElementById('pgn-input').value;
-  try {
-    const fens = pgnToFens(pgn);
-    const existing = document.getElementById('fen-ta').value.trim();
-    const toAdd = fens.join('\n');
-    document.getElementById('fen-ta').value = existing ? existing + '\n' + toAdd : toAdd;
-    updateCount();
-
-    const label = pgnMode === 'all'
-      ? `${fens.length} position${fens.length !== 1 ? 's' : ''} added to FEN list`
-      : pgnMode === 'after'
-        ? `${fens.length} FEN${fens.length !== 1 ? 's' : ''} added (around move ${document.getElementById('pgn-move-n').value})`
-        : `Final position added → ${fens[0].split(' ').slice(0,4).join(' ')}…`;
-
-    setPgnStatus('success', '✓ ' + label);
-  } catch (e) {
-    setPgnStatus('error', '✗ ' + e.message);
-  }
-}
-
-// PGN file loader
-document.addEventListener('DOMContentLoaded', () => {
-  const pgnFileInput = document.getElementById('pgn-file-input');
-  if (pgnFileInput) {
-    pgnFileInput.addEventListener('change', e => {
-      const f = e.target.files[0]; if (!f) return;
-      const r = new FileReader();
-      r.onload = ev => {
-        document.getElementById('pgn-input').value = ev.target.result;
-        setPgnStatus('success', `✓ Loaded ${f.name}`);
-      };
-      r.onerror = () => setPgnStatus('error', '✗ Failed to read file');
-      r.readAsText(f);
-      e.target.value = '';
-    });
-  }
-});
 
 // ── Tab switching ──────────────────────────────────────
 function switchTab(t) {
@@ -1017,6 +808,7 @@ async function fetchFromLichess() {
         const fen = await fetchOnePuzzle(theme, apiKey);
         if (fen && !seen.has(fen)) { batch.push(fen); seen.add(fen); }
         else if (!fen) break;
+        // safety break to avoid infinite loop
         if (seen.size > count + 5) break;
       }
     }
@@ -1033,7 +825,7 @@ async function fetchFromLichess() {
     setTimeout(() => { progress.style.display = 'none'; }, 2500);
 
     allPuzzles = batch;
-    allDiffs   = batch.map(() => '');
+    allDiffs   = batch.map(() => ''); // no difficulty label for theme-only fetches
     document.getElementById('fen-ta').value = batch.join('\n');
     updateCount(); doGenerate();
   } catch (e) {
@@ -1125,7 +917,7 @@ function buildEmptyState(wrap) {
     <div class="empty-state">
       <div class="empty-board" id="empty-board-grid"></div>
       <div class="empty-title">No puzzles yet</div>
-      <div class="empty-sub">Choose <strong>📦 Built-in</strong> for instant offline puzzles, paste FENs manually, or convert PGN in the <strong>✎ Manual</strong> tab</div>
+      <div class="empty-sub">Choose <strong>📦 Built-in</strong> for instant offline puzzles, paste FENs manually, or fetch from Lichess (requires a web server, not file://)</div>
     </div>`;
   const grid = document.getElementById('empty-board-grid');
   if (!grid) return;
@@ -1331,9 +1123,6 @@ document.getElementById('print-btn').addEventListener('click', () => {
 
 document.getElementById('clear-btn').addEventListener('click', () => {
   document.getElementById('fen-ta').value = '';
-  document.getElementById('pgn-input').value = '';
-  const pgnStatus = document.getElementById('pgn-status');
-  pgnStatus.className = 'pgn-status'; pgnStatus.textContent = '';
   allPuzzles = []; allDiffs = []; turnStates = []; flipStates = []; answerStates = []; noteStates = [];
   updateCount();
   buildEmptyState(document.getElementById('sheets-wrap'));
