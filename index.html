@@ -715,45 +715,54 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 function pgnToFen(pgn, initialPly) {
   try {
     const chess = new Chess();
-    // Use a proper regex literal - filter move number tokens like "1." "2." "10..."
-   const tokens = pgn.trim().split(/\s+/)
-  .map(t => t.replace(/^\d+\.+/, ''))   // remove leading "1." or "1..."
-  .filter(t => t.length);
+    if (!pgn || typeof pgn !== 'string') return chess.fen();
 
-    });
+    // Tokenize: remove leading move numbers like "1." or "1..." and strip stray punctuation
+    const tokens = pgn.trim().split(/\s+/)
+      .map(t => t.replace(/^\d+\.+/, ''))                    // remove "1." or "1..."
+      .map(t => t.replace(/^[\(
+
+\[]+|[\)\]
+
+,;]+$/g, ''))       // strip surrounding punctuation
+      .filter(t => t.length && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)); // drop result markers
+
     let played = 0;
     // initialPly is 0-based index of last pre-puzzle ply → play initialPly+1 moves
-// initialPly = number of plies to play (0 means no moves)
-for (let i = 0; i < tokens.length && played < initialPly; i++) {
-  const tok = tokens[i];
-  // try SAN then UCI...
-  if (m) played++;
-}
+    const targetPlies = (typeof initialPly === 'number' && !isNaN(initialPly)) ? (initialPly + 1) : 0;
 
-      // Try SAN first (e.g. "e4", "Nf3", "O-O")
-      try { m = chess.move(tok); } catch(e) {}
-      // Fallback: UCI coordinate format (e.g. "e2e4", "g1f3", "e7e8q")
+    for (let i = 0; i < tokens.length && played < targetPlies; i++) {
+      const tok = tokens[i];
+      let m = null;
+
+      // Try SAN first (sloppy mode accepts some nonstandard SAN)
+      try { m = chess.move(tok, { sloppy: true }); } catch (e) { m = null; }
+
+      // Fallback: UCI coordinate format (e2e4, g1f3, e7e8q)
       if (!m && /^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/.test(tok)) {
         try {
-          m = chess.move({
-            from: tok.slice(0, 2),
-            to:   tok.slice(2, 4),
-            promotion: tok[4] ? tok[4].toLowerCase() : 'q'
-          });
-        } catch(e) {}
+          const from = tok.slice(0, 2);
+          const to = tok.slice(2, 4);
+          const promotion = tok[4] ? tok[4].toLowerCase() : undefined;
+          m = chess.move({ from, to, promotion });
+        } catch (e) { m = null; }
       }
+
       if (!m) {
-        console.warn('[pgnToFen] failed on token:', tok, 'played:', played, 'initialPly:', initialPly);
+        console.warn('[pgnToFen] failed on token:', tok, 'played:', played, 'targetPlies:', targetPlies);
         return null;
       }
+
       played++;
     }
+
     return chess.fen();
   } catch (e) {
     console.warn('[pgnToFen] FEN compute failed:', e);
     return null;
   }
 }
+
 
 function extractFenFromPuzzle(p) {
   if (!p) return '';
