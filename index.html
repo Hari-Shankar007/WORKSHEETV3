@@ -710,20 +710,22 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Compute FEN from PGN + initialPly (from fentopgn) ─────────────────────
-  function pgnToFen(pgn, initialPly) {
-      try {
-            const chess = new Chess();
-            const moves = pgn.trim().split(/\s+/);
-            for (let i = 0; i <= initialPly && i < moves.length; i++) {
-                    const m = chess.move(moves[i]);
-                    if (!m) return null;
-                  }
-            return chess.fen();
-          } catch (e) {
-            console.warn('FEN compute failed:', e);
-            return null;
-          }
+// FIXED — filters out move number tokens, correct loop bound
+function pgnToFen(pgn, initialPly) {
+  try {
+    const chess = new Chess();
+    // Strip move numbers like "1." "2." "10..." before indexing
+    const moves = pgn.trim().split(/\s+/).filter(t => !/^\d+\.+$/.test(t));
+    for (let i = 0; i < initialPly && i < moves.length; i++) {
+      const m = chess.move(moves[i]);
+      if (!m) return null;
     }
+    return chess.fen();
+  } catch (e) {
+    console.warn('FEN compute failed:', e);
+    return null;
+  }
+}
   
     // FIXED — extractFenFromPuzzle properly closed, fetchOnePuzzle is top-level
 // FIXED — extractFenFromPuzzle properly closed, fetchOnePuzzle is top-level
