@@ -515,7 +515,21 @@ const BUILTIN_PUZZLES = [
 
 // ── FEN validator ──────────────────────────────────────
 function looksLikeFen(s) {
-  return /^([rnbqkpRNBQKP1-8]+\/){7}[rnbqkpRNBQKP1-8]+/.test((s||'').trim());
+  if (!s || typeof s !== 'string') return false;
+  const parts = s.trim().split(' ');
+  if (parts.length < 4) return false;                 // board, turn, castling, ep
+  const ranks = parts[0].split('/');
+  if (ranks.length !== 8) return false;
+  for (const rank of ranks) {
+    let sq = 0;
+    for (const ch of rank) {
+      if (/[rnbqkpRNBQKP]/.test(ch)) sq++;
+      else if (/[1-8]/.test(ch)) sq += parseInt(ch, 10);
+      else return false;
+    }
+    if (sq !== 8) return false;
+  }
+  return true;
 }
 
 // ── State ──────────────────────────────────────────────
@@ -717,59 +731,59 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 // ── Corrected PGN → FEN converter ──────────────────────
 function pgnToFen(pgn, initialPly) {
   try {
-    if (!pgn || typeof pgn !== 'string') {
-      return new Chess().fen();
+    if (!pgn || typeof pgn !== 'string') return new Chess().fen();
+
+    const chess = new Chess();
+    // Lichess game.pgn is space-separated UCI: e2e4 e7e5 g1f3 b8c6 ...
+    // Also handle SAN PGNs (move numbers, annotations) as fallback.
+    const rawTokens = pgn.trim().split(/\s+/);
+    const moves = [];
+
+    for (const t of rawTokens) {
+      const tok = t
+        .replace(/^\d+\.+(\.\.)?/, '')   // strip "1."  "1..."  "10."
+        .replace(/[\+\#\!\?]+$/, '')      // strip check/mate/annotation suffixes
+        .replace(/^[\(\[]+|[\)\],;]+$/, '') // strip surrounding brackets/punctuation
+        .trim();
+      if (!tok) continue;
+      if (/^\d+$/.test(tok)) continue;       // skip pure move numbers
+      if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(tok)) continue; // skip results
+      moves.push(tok);
     }
 
-    // ── Strategy 1: load_pgn (handles annotations, comments, variations natively) ──
-    const chess1 = new Chess();
-    if (chess1.load_pgn(pgn) || chess1.load_pgn(pgn, { sloppy: true })) {
-      const history = chess1.history();
-      const currentPly = history.length;
-      if (typeof initialPly === 'number' && !isNaN(initialPly) && currentPly > initialPly) {
-        for (let i = 0; i < currentPly - initialPly; i++) {
-          chess1.undo();
-        }
-      }
-      return chess1.fen();
-    }
+    const target = (typeof initialPly === 'number' && !isNaN(initialPly))
+      ? initialPly : moves.length;
+    const limit = Math.min(target, moves.length);
 
-    // ── Strategy 2: manual tokenization fallback ──
-    const chess2 = new Chess();
-    const tokens = pgn.trim().split(/\s+/)
-      .map(t => t.replace(/^\d+\.+/, ''))                    // remove "1." or "1..."
-      .map(t => t.replace(/[\+\#\!\?]+$/, ''))               // strip check/mate/annotation suffixes
-      .map(t => t.replace(/^[\(\[]+|[\)\],;]+$/, ''))        // strip surrounding punctuation
-      .filter(t => t.length && !/^\d+$/.test(t))             // drop pure numbers
-      .filter(t => !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t));     // drop result markers
-
-    const targetPlies = (typeof initialPly === 'number' && !isNaN(initialPly)) ? initialPly : 0;
-
-    let played = 0;
-    for (let i = 0; i < tokens.length && played < targetPlies; i++) {
-      const tok = tokens[i];
+    for (let i = 0; i < limit; i++) {
+      const tok = moves[i];
       let m = null;
 
-      try { m = chess2.move(tok, { sloppy: true }); } catch (e) { m = null; }
-
-      if (!m && /^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/.test(tok)) {
+      // ── Primary: UCI object notation (e2e4, e7e8q, e1g1) ──
+      if (/^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/.test(tok)) {
         try {
-          const from = tok.slice(0, 2);
-          const to = tok.slice(2, 4);
-          const promotion = tok[4] ? tok[4].toLowerCase() : undefined;
-          m = chess2.move({ from, to, promotion });
+          m = chess.move({
+            from: tok.slice(0, 2),
+            to: tok.slice(2, 4),
+            promotion: tok[4] ? tok[4].toLowerCase() : undefined
+          });
         } catch (e) { m = null; }
       }
 
+      // ── Fallback: SAN / sloppy algebraic ──
       if (!m) {
-        console.warn('[pgnToFen] fallback failed on token:', tok, 'played:', played, 'targetPlies:', targetPlies);
+        try { m = chess.move(tok, { sloppy: true }); } catch (e) { m = null; }
+      }
+
+      if (!m) {
+        console.warn('[pgnToFen] failed on move', i + 1, '/', limit, ':', tok);
         return null;
       }
-      played++;
     }
-    return chess2.fen();
+
+    return chess.fen();
   } catch (e) {
-    console.warn('[pgnToFen] FEN compute failed:', e);
+    console.warn('[pgnToFen] error:', e);
     return null;
   }
 }
@@ -778,34 +792,32 @@ function pgnToFen(pgn, initialPly) {
 function extractFenFromPuzzle(p) {
   if (!p) return null;
 
-  // Lichess API returns nested structure: { game: {...}, puzzle: { initialPly: N, ... } }
-  // Handle both flat and nested forms
+  // Lichess API structure: { game: {pgn, ...}, puzzle: {initialPly, ...} }
   const puzzleObj = p.puzzle || p;
   const gameObj   = p.game   || (p.puzzle && p.puzzle.game) || null;
 
-  // Direct FEN in game object (some endpoints include it)
-  if (gameObj && gameObj.fen && looksLikeFen(gameObj.fen)) return gameObj.fen.trim();
+  // 1. Direct FEN in game object
+  if (gameObj && typeof gameObj.fen === 'string' && looksLikeFen(gameObj.fen))
+    return gameObj.fen.trim();
 
-  // Direct FEN in puzzle object
-  if (puzzleObj.fen && looksLikeFen(puzzleObj.fen)) return puzzleObj.fen.trim();
+  // 2. Direct FEN in puzzle object
+  if (puzzleObj.fen && typeof puzzleObj.fen === 'string' && looksLikeFen(puzzleObj.fen))
+    return puzzleObj.fen.trim();
 
-  // Compute FEN from PGN + initialPly
+  // 3. Compute from PGN + initialPly
   const pgn = gameObj && gameObj.pgn ? gameObj.pgn : null;
   const initialPly = (typeof puzzleObj.initialPly === 'number' && !isNaN(puzzleObj.initialPly))
     ? puzzleObj.initialPly : null;
 
+  if (pgn && initialPly !== null) {
+    const fen = pgnToFen(pgn, initialPly);
+    if (fen && looksLikeFen(fen)) return fen;
+  }
+
+  // 4. Fallback: play all moves (PGN may already be truncated)
   if (pgn) {
-    // Primary: use initialPly to reach puzzle position
-    if (initialPly !== null) {
-      const fen = pgnToFen(pgn, initialPly);
-      if (fen && looksLikeFen(fen)) return fen;
-    }
-    // Fallback: play all moves in PGN (assumes PGN is truncated at puzzle position)
-    const fenAll = pgnToFen(pgn, Infinity);
-    if (fenAll && looksLikeFen(fenAll)) {
-      console.warn('[extractFenFromPuzzle] used fallback (all moves) for puzzle');
-      return fenAll;
-    }
+    const fen = pgnToFen(pgn, Infinity);
+    if (fen && looksLikeFen(fen)) return fen;
   }
 
   return null;
