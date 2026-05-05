@@ -513,6 +513,11 @@ const BUILTIN_PUZZLES = [
   { fen: "r1bq1rk1/pp3ppp/2n1pn2/3p4/3P1B2/2N1PN2/PP3PPP/R2QKB1R w KQ - 0 9", diff: "hard" },
 ];
 
+// ── FEN validator ──────────────────────────────────────
+function looksLikeFen(s) {
+  return /^([rnbqkpRNBQKP1-8]+\/){7}[rnbqkpRNBQKP1-8]+/.test((s||'').trim());
+}
+
 // ── State ──────────────────────────────────────────────
 let logoUrl = null;
 let allPuzzles = [];
@@ -709,35 +714,30 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 // LICHESS API FETCH — theme only, no difficulty
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Compute FEN from PGN + initialPly (from fentopgn) ─────────────────────
-// FIXED — filters out move number tokens, correct loop bound
-// ── Compute FEN from PGN + initialPly ───────────────────
+// ── Corrected PGN → FEN converter ──────────────────────
 function pgnToFen(pgn, initialPly) {
   try {
     const chess = new Chess();
     if (!pgn || typeof pgn !== 'string') return chess.fen();
 
-    // Tokenize: remove leading move numbers like "1." or "1..." and strip stray punctuation
- // Tokenize: remove leading move numbers like "1." or "1..." and strip stray punctuation
-const tokens = pgn.trim().split(/\s+/)
-  .map(t => t.replace(/^\d+\.+/, ''))                    // remove "1." or "1..."
-  .map(t => t.replace(/^[\(
+    // Tokenize: remove leading move numbers and stray punctuation
+    const tokens = pgn.trim().split(/\s+/)
+      .map(t => t.replace(/^\d+\.+/, ''))                    // remove "1." or "1..."
+      .map(t => t.replace(/^[\(\[]+|[\)\],;]+$/g, ''))       // strip punctuation
+      .filter(t => t.length && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)); // drop result markers
 
-\[]+|[\)\]
-
-,;]+$/g, ''))       // strip surrounding punctuation
-  .filter(t => t.length && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t)); // drop result markers
-
-    let played = 0;
     // initialPly is 0-based index of last pre-puzzle ply → play initialPly+1 moves
     const targetPlies = (typeof initialPly === 'number' && !isNaN(initialPly)) ? (initialPly + 1) : 0;
-for (let i = 0; i < tokens.length && played < targetPlies; i++) {
-  const tok = tokens[i];
 
-      // Try SAN first (sloppy mode accepts some nonstandard SAN)
+    let played = 0;
+    for (let i = 0; i < tokens.length && played < targetPlies; i++) {
+      const tok = tokens[i];
+      let m = null;
+
+      // Try SAN first
       try { m = chess.move(tok, { sloppy: true }); } catch (e) { m = null; }
 
-      // Fallback: UCI coordinate format (e2e4, g1f3, e7e8q)
+      // Fallback: UCI format (e2e4, g1f3, e7e8q)
       if (!m && /^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/.test(tok)) {
         try {
           const from = tok.slice(0, 2);
@@ -762,25 +762,22 @@ for (let i = 0; i < tokens.length && played < targetPlies; i++) {
   }
 }
 
+// ── Corrected puzzle FEN extractor ─────────────────────
+function extractFenFromPuzzle(puzzle) {
+  if (!puzzle) return null;
 
-function extractFenFromPuzzle(p) {
-  if (!p) return '';
-  const puzzleObj = p.puzzle || p;
-  const gameObj   = p.game   || (p.puzzle && p.puzzle.game) || null;
+  if (puzzle.fen && looksLikeFen(puzzle.fen)) return puzzle.fen.trim();
+  if (puzzle.game && puzzle.game.fen && looksLikeFen(puzzle.game.fen)) return puzzle.game.fen.trim();
 
-  // /api/puzzle/next returns data.game.fen directly
-  if (gameObj && typeof gameObj.fen === 'string' && gameObj.fen.includes('/')) return gameObj.fen;
-  // Sometimes puzzle.fen exists
-  if (typeof puzzleObj.fen === 'string' && puzzleObj.fen.includes('/')) return puzzleObj.fen;
-  if (typeof p.fen === 'string' && p.fen.includes('/')) return p.fen;
-
-  // Batch API: compute from UCI pgn + initialPly
-  if (gameObj && typeof gameObj.pgn === 'string' && typeof puzzleObj.initialPly === 'number') {
-    const computed = pgnToFen(gameObj.pgn, puzzleObj.initialPly);
-    if (computed) return computed;
+  const pgn = puzzle.game && puzzle.game.pgn ? puzzle.game.pgn : null;
+  const initialPly = (typeof puzzle.initialPly === 'number' && !isNaN(puzzle.initialPly)) ? puzzle.initialPly : null;
+  if (pgn && initialPly !== null) {
+    const fen = pgnToFen(pgn, initialPly);
+    if (fen && looksLikeFen(fen)) return fen;
   }
-  return '';
-}                            // ← ADD THIS CLOSING BRACE
+
+  return null;
+}
 
 async function fetchOnePuzzle(theme, apiKey) {     // ← now correctly at top-level
   const params = new URLSearchParams();
@@ -824,7 +821,7 @@ async function fetchBatch(theme, count, apiKey) {
 
   const fens = puzzles
     .map(extractFenFromPuzzle)
-    .filter(f => f && f.includes('/'));
+    .filter(f => looksLikeFen(f));
 
   console.log(`[Lichess API] Extracted ${fens.length} FENs from ${puzzles.length} puzzles`);
   return fens;
@@ -1144,7 +1141,7 @@ function doGenerate() {
 // ── Helpers ────────────────────────────────────────────
 function updateCount() {
   const lines = document.getElementById('fen-ta').value
-    .split('\n').map(l => l.trim()).filter(l => l.length > 10 && l.includes('/'));
+    .split('\n').map(l => l.trim()).filter(l => looksLikeFen(l));
   document.getElementById('fen-count').textContent = lines.length;
 }
 
@@ -1162,7 +1159,7 @@ document.getElementById('ws-contact').addEventListener('input', () => {
 document.getElementById('gen-btn').addEventListener('click', () => {
   if (currentTab === 'manual') {
     const lines = document.getElementById('fen-ta').value
-      .split('\n').map(l => l.trim()).filter(l => l.length > 10 && l.includes('/'));
+      .split('\n').map(l => l.trim()).filter(l => looksLikeFen(l));
     allPuzzles = lines; allDiffs = lines.map(() => '');
   }
   if (currentTab === 'builtin' && allPuzzles.length === 0) {
@@ -1201,7 +1198,7 @@ document.getElementById('fen-file').addEventListener('change', e => {
   r.onload = ev => {
     const text = ev.target.result;
     const existing = document.getElementById('fen-ta').value.trim();
-    const newLines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 10 && l.includes('/'));
+    const newLines = text.split(/\r?\n/).map(l => l.trim()).filter(l => looksLikeFen(l));
     const merged = existing ? existing + '\n' + newLines.join('\n') : newLines.join('\n');
     document.getElementById('fen-ta').value = merged;
     updateCount();
