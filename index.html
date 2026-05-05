@@ -6,7 +6,8 @@
 <title>Chess Puzzle Worksheet Generator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
 :root {
   --bg:           #0d0f14;
   --surface:      #13161e;
@@ -708,16 +709,37 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 // LICHESS API FETCH — theme only, no difficulty
 // ═══════════════════════════════════════════════════════════════════════════
 
-function extractFenFromPuzzle(p) {
-  if (!p) return '';
-  if (p.puzzle) {
-    if (typeof p.puzzle.fen === 'string') return p.puzzle.fen;
-    if (p.puzzle.game && typeof p.puzzle.game.fen === 'string') return p.puzzle.game.fen;
+// ── Compute FEN from PGN + initialPly (from fentopgn) ─────────────────────
+  function pgnToFen(pgn, initialPly) {
+      try {
+            const chess = new Chess();
+            const moves = pgn.trim().split(/\s+/);
+            for (let i = 0; i <= initialPly && i < moves.length; i++) {
+                    const m = chess.move(moves[i]);
+                    if (!m) return null;
+                  }
+            return chess.fen();
+          } catch (e) {
+            console.warn('FEN compute failed:', e);
+            return null;
+          }
+    }
+  
+    function extractFenFromPuzzle(p) {
+    if (!p) return '';
+  // 1. Batch API: entry has { puzzle: {...}, game: { pgn, ... } }
+  const puzzleObj = p.puzzle || p;
+  const gameObj = p.game || (p.puzzle && p.puzzle.game) || null;
+  // 2. Try direct FEN fields first
+  if (typeof puzzleObj.fen === 'string' && puzzleObj.fen.includes('/')) return puzzleObj.fen;
+  if (gameObj && typeof gameObj.fen === 'string' && gameObj.fen.includes('/')) return gameObj.fen;
+  if (typeof p.fen === 'string' && p.fen.includes('/')) return p.fen;
+  // 3. Compute FEN from PGN + initialPly (batch API response)
+  if (gameObj && typeof gameObj.pgn === 'string' && typeof puzzleObj.initialPly === 'number') {
+    const computed = pgnToFen(gameObj.pgn, puzzleObj.initialPly);
+    if (computed) return computed;
   }
-  if (typeof p.fen === 'string') return p.fen;
-  if (p.game && typeof p.game.fen === 'string') return p.game.fen;
   return '';
-}
 
 async function fetchOnePuzzle(theme, apiKey) {
   const params = new URLSearchParams();
