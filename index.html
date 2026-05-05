@@ -716,14 +716,20 @@ function pgnToFen(pgn, initialPly) {
   try {
     const chess = new Chess();
     // Use a proper regex literal - filter move number tokens like "1." "2." "10..."
-    const tokens = pgn.trim().split(/\s+/).filter(function(t) {
-      return !/^\d+\.+$/.test(t);
+   const tokens = pgn.trim().split(/\s+/)
+  .map(t => t.replace(/^\d+\.+/, ''))   // remove leading "1." or "1..."
+  .filter(t => t.length);
+
     });
     let played = 0;
     // initialPly is 0-based index of last pre-puzzle ply → play initialPly+1 moves
-    for (let i = 0; i < tokens.length && played <= initialPly; i++) {
-      const tok = tokens[i];
-      let m = null;
+// initialPly = number of plies to play (0 means no moves)
+for (let i = 0; i < tokens.length && played < initialPly; i++) {
+  const tok = tokens[i];
+  // try SAN then UCI...
+  if (m) played++;
+}
+
       // Try SAN first (e.g. "e4", "Nf3", "O-O")
       try { m = chess.move(tok); } catch(e) {}
       // Fallback: UCI coordinate format (e.g. "e2e4", "g1f3", "e7e8q")
