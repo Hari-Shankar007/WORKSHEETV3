@@ -725,23 +725,23 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
           }
     }
   
-    function extractFenFromPuzzle(p) {
-    if (!p) return '';
-  // 1. Batch API: entry has { puzzle: {...}, game: { pgn, ... } }
+    // FIXED — extractFenFromPuzzle properly closed, fetchOnePuzzle is top-level
+// FIXED — extractFenFromPuzzle properly closed, fetchOnePuzzle is top-level
+function extractFenFromPuzzle(p) {
+  if (!p) return '';
   const puzzleObj = p.puzzle || p;
   const gameObj = p.game || (p.puzzle && p.puzzle.game) || null;
-  // 2. Try direct FEN fields first
   if (typeof puzzleObj.fen === 'string' && puzzleObj.fen.includes('/')) return puzzleObj.fen;
   if (gameObj && typeof gameObj.fen === 'string' && gameObj.fen.includes('/')) return gameObj.fen;
   if (typeof p.fen === 'string' && p.fen.includes('/')) return p.fen;
-  // 3. Compute FEN from PGN + initialPly (batch API response)
   if (gameObj && typeof gameObj.pgn === 'string' && typeof puzzleObj.initialPly === 'number') {
     const computed = pgnToFen(gameObj.pgn, puzzleObj.initialPly);
     if (computed) return computed;
   }
   return '';
+}                                                  // ← ADD THIS CLOSING BRACE
 
-async function fetchOnePuzzle(theme, apiKey) {
+async function fetchOnePuzzle(theme, apiKey) {     // ← now correctly at top-level
   const params = new URLSearchParams();
   if (theme) params.set('angle', theme);
   const url = `https://lichess.org/api/puzzle/next?${params.toString()}`;
