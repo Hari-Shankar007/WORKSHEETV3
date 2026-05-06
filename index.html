@@ -846,7 +846,7 @@ async function fetchBatch(theme, count, apiKey) {
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   console.log('[Lichess API] Batch URL:', url);
-  const res = await fetch(url, { headers });
+ const res = await fetch(url); //, { headers });
   if (res.status === 401) throw new Error('Invalid or missing API token — check your token at lichess.org/account/oauth/token');
   if (res.status === 429) throw new Error('Rate limited by Lichess. Wait a minute and retry.');
   if (!res.ok) {
