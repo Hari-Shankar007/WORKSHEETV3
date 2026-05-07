@@ -211,6 +211,7 @@ canvas.brd { width: 100%; height: 100%; display: block; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 </style>
+<base target="_blank">
 </head>
 <body>
 <div id="app">
@@ -358,6 +359,20 @@ canvas.brd { width: 100%; height: 100%; display: block; }
             <option value="castling">Castling</option>
           </optgroup>
         </select>
+      </div>
+
+      <div class="s-field">
+        <div class="s-label">Difficulty</div>
+        <select class="s-input" id="lc-difficulty">
+          <option value="easiest">Easiest (-600)</option>
+          <option value="easier">Easier (-300)</option>
+          <option value="normal" selected>Normal (0)</option>
+          <option value="harder">Harder (+300)</option>
+          <option value="hardest">Hardest (+600)</option>
+        </select>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">
+          Relative to your puzzle rating. No effect for guests.
+        </div>
       </div>
 
       <div class="s-field">
@@ -832,9 +847,10 @@ function extractFenFromPuzzle(p) {
   return null;
 }
 
-async function fetchOnePuzzle(theme, apiKey) {     // ← now correctly at top-level
+async function fetchOnePuzzle(theme, apiKey, difficulty) {
   const params = new URLSearchParams();
   if (theme) params.set('angle', theme);
+  if (difficulty && difficulty !== 'normal') params.set('difficulty', difficulty);
   const url = `https://lichess.org/api/puzzle/next?${params.toString()}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
@@ -911,7 +927,7 @@ async function fetchFromLichess() {
   msg.textContent = `Fetching ${count} ${theme} puzzles…`;
 
   try {
-    let batch = await fetchBatch(theme, count, apiKey);
+    let batch = await fetchBatch(theme, count, apiKey, difficulty);
     bar.style.width = '70%';
 
     // Fallback: fill individually if batch came up short
@@ -919,7 +935,7 @@ async function fetchFromLichess() {
       console.log(`[Fallback] Batch returned ${batch.length}/${count}, fetching individually…`);
       const seen = new Set(batch);
       while (batch.length < count) {
-        const fen = await fetchOnePuzzle(theme, apiKey);
+        const fen = await fetchOnePuzzle(theme, apiKey, difficulty);
         if (fen && !seen.has(fen)) { batch.push(fen); seen.add(fen); }
         else if (!fen) break;
         // safety break to avoid infinite loop
