@@ -534,12 +534,16 @@ function extractFenFromPuzzle(p) {
   }
 
   const pgn = gameObj && gameObj.pgn ? gameObj.pgn : null;
-  const initialPly = Number.isFinite(puzzleObj.initialPly) ? puzzleObj.initialPly : null;
+ const parsedInitialPly = Number(puzzleObj.initialPly);
+const initialPly = Number.isFinite(parsedInitialPly) ? parsedInitialPly : null;
 
-  if (pgn && initialPly !== null) {
-    const fen = pgnToFen(pgn, initialPly);
-    if (fen && looksLikeFen(fen)) return fen;
-  }
+if (pgn && initialPly !== null) {
+  // Lichess initialPly is one half-move before the displayed puzzle position.
+  // Apply one extra ply so the board matches the first solution move.
+  const fen = pgnToFen(pgn, initialPly + 1);
+  if (fen && looksLikeFen(fen)) return fen;
+}
+
 
   if (gameObj && typeof gameObj.fen === 'string' && looksLikeFen(gameObj.fen)) {
     return gameObj.fen.trim();
