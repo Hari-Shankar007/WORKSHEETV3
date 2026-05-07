@@ -301,7 +301,7 @@ canvas.brd { width: 100%; height: 100%; display: block; }
         </div>
       </div>
 
-      <div class="s-field">
+            <div class="s-field">
         <div class="s-label">Theme / Angle</div>
         <select class="s-input" id="lc-theme">
           <optgroup label="Mate patterns">
@@ -309,54 +309,89 @@ canvas.brd { width: 100%; height: 100%; display: block; }
             <option value="mateIn2">Mate in 2</option>
             <option value="mateIn3">Mate in 3</option>
             <option value="mateIn4">Mate in 4</option>
-            <option value="mateIn5">Mate in 5</option>
-            <option value="backRankMate">Back Rank Mate</option>
-            <option value="smotheredMate">Smothered Mate</option>
+            <option value="mateIn5">Mate in 5+</option>
             <option value="anastasiaMate">Anastasia's Mate</option>
             <option value="arabianMate">Arabian Mate</option>
+            <option value="backRankMate">Back Rank Mate</option>
+            <option value="balestraMate">Balestra Mate</option>
+            <option value="blindSwineMate">Blind Swine Mate</option>
             <option value="bodenMate">Boden's Mate</option>
+            <option value="cornerMate">Corner Mate</option>
             <option value="doubleBishopMate">Double Bishop Mate</option>
             <option value="dovetailMate">Dovetail Mate</option>
+            <option value="epauletteMate">Epaulette Mate</option>
             <option value="hookMate">Hook Mate</option>
+            <option value="killBoxMate">Kill Box Mate</option>
+            <option value="morphyMate">Morphy's Mate</option>
+            <option value="operaMate">Opera Mate</option>
+            <option value="pillsburyMate">Pillsbury's Mate</option>
+            <option value="queenRookMate">Queen & Rook Mate</option>
+            <option value="smotheredMate">Smothered Mate</option>
+            <option value="swallowTailMate">Swallow's Tail Mate</option>
+            <option value="triangleMate">Triangle Mate</option>
+            <option value="vukovicMate">Vukovic Mate</option>
           </optgroup>
           <optgroup label="Tactical motifs">
-            <option value="pin">Pin</option>
-            <option value="fork">Fork</option>
-            <option value="skewer">Skewer</option>
-            <option value="discoveredAttack">Discovered Attack</option>
-            <option value="hangingPiece">Hanging Piece</option>
-            <option value="sacrifice">Sacrifice</option>
-            <option value="deflection">Deflection</option>
-            <option value="interference">Interference</option>
-            <option value="xRayAttack">X-Ray Attack</option>
-            <option value="intermezzo">Intermezzo (Zwischenzug)</option>
+            <option value="advancedPawn">Advanced Pawn</option>
+            <option value="advantage">Advantage</option>
             <option value="attraction">Attraction</option>
-            <option value="clearance">Clearance</option>
-            <option value="trappedPiece">Trapped Piece</option>
-            <option value="exposedKing">Exposed King</option>
             <option value="capturingDefender">Capture the Defender</option>
+            <option value="clearance">Clearance</option>
+            <option value="coercion">Coercion</option>
+            <option value="collinearMove">Collinear Move</option>
+            <option value="crushing">Crushing</option>
+            <option value="defensiveMove">Defensive Move</option>
+            <option value="deflection">Deflection</option>
+            <option value="discoveredAttack">Discovered Attack</option>
+            <option value="discoveredCheck">Discovered Check</option>
             <option value="doubleCheck">Double Check</option>
+            <option value="enPassant">En Passant</option>
+            <option value="equality">Equality</option>
+            <option value="exposedKing">Exposed King</option>
+            <option value="fork">Fork</option>
+            <option value="hangingPiece">Hanging Piece</option>
+            <option value="interference">Interference</option>
+            <option value="intermezzo">Intermezzo (Zwischenzug)</option>
+            <option value="pin">Pin</option>
+            <option value="quietMove">Quiet Move</option>
+            <option value="sacrifice">Sacrifice</option>
+            <option value="skewer">Skewer</option>
+            <option value="trappedPiece">Trapped Piece</option>
+            <option value="xRayAttack">X-Ray Attack</option>
+            <option value="zugzwang">Zugzwang</option>
+          </optgroup>
+          <optgroup label="Attacking motifs">
+            <option value="attackingF2F7">Attacking f2 or f7</option>
+            <option value="kingsideAttack">Kingside Attack</option>
+            <option value="queensideAttack">Queenside Attack</option>
           </optgroup>
           <optgroup label="Game phase">
             <option value="opening">Opening</option>
             <option value="middlegame">Middlegame</option>
             <option value="endgame">Endgame</option>
-            <option value="rookEndgame">Rook Endgame</option>
-            <option value="bishopEndgame">Bishop Endgame</option>
-            <option value="pawnEndgame">Pawn Endgame</option>
-            <option value="knightEndgame">Knight Endgame</option>
-            <option value="queenEndgame">Queen Endgame</option>
+            <option value="oneMove">One Move</option>
+            <option value="short">Short (2 moves)</option>
+            <option value="long">Long (3-4 moves)</option>
+            <option value="veryLong">Very Long (5+ moves)</option>
           </optgroup>
-          <optgroup label="Other">
-            <option value="kingsideAttack">Kingside Attack</option>
-            <option value="queensideAttack">Queenside Attack</option>
-            <option value="advancedPawn">Advanced Pawn</option>
-            <option value="attackingF2F7">Attacking f2 or f7</option>
-            <option value="quietMove">Quiet Move</option>
-            <option value="zugzwang">Zugzwang</option>
+          <optgroup label="Endgame types">
+            <option value="bishopEndgame">Bishop Endgame</option>
+            <option value="knightEndgame">Knight Endgame</option>
+            <option value="pawnEndgame">Pawn Endgame</option>
+            <option value="queenEndgame">Queen Endgame</option>
+            <option value="queenRookEndgame">Queen vs Rook</option>
+            <option value="rookEndgame">Rook Endgame</option>
+          </optgroup>
+          <optgroup label="Special moves">
+            <option value="castling">Castling</option>
             <option value="promotion">Promotion</option>
             <option value="underPromotion">Under-promotion</option>
-            <option value="castling">Castling</option>
+          </optgroup>
+          <optgroup label="Puzzle origins">
+            <option value="master">Master Games</option>
+            <option value="masterVsMaster">Master vs Master</option>
+            <option value="superGM">Super GM Games</option>
+            <option value="mate">Mate (any pattern)</option>
           </optgroup>
         </select>
       </div>
