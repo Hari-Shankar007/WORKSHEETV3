@@ -728,8 +728,17 @@ document.getElementById('cnt-total').addEventListener('input', updateSheetEstima
 // LICHESS API FETCH — theme only, no difficulty
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── Corrected PGN → FEN converter ──────────────────────
 function pgnToFen(pgn, initialPly) {
+  const temp = new Chess();
+  temp.load_pgn(pgn);
+
+  const result = temp.fen();
+  console.log('PGN → FEN conversion result:', result);
+  return result;
+}
+
+// ── Corrected PGN → FEN converter ──────────────────────
+function OLDpgnToFen(pgn, initialPly) {
   try {
     if (!pgn || typeof pgn !== 'string') return new Chess().fen();
 
@@ -841,12 +850,13 @@ async function fetchOnePuzzle(theme, apiKey) {     // ← now correctly at top-l
 
 async function fetchBatch(theme, count, apiKey) {
   if (count <= 0) return [];
-  const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}`;
+  const url = `https://lichess.org/api/puzzle/batch/${encodeURIComponent(theme)}`;
+  // const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   console.log('[Lichess API] Batch URL:', url);
- const res = await fetch(url); //, { headers });
+  const res = await fetch(url); //, { headers });
   if (res.status === 401) throw new Error('Invalid or missing API token — check your token at lichess.org/account/oauth/token');
   if (res.status === 429) throw new Error('Rate limited by Lichess. Wait a minute and retry.');
   if (!res.ok) {
@@ -878,14 +888,14 @@ async function fetchFromLichess() {
   }
 
   const apiKey = getApiKey();
-  if (!apiKey) {
-    alert('Please enter your Lichess API token.\n\nCreate one at: https://lichess.org/account/oauth/token/create\n(No special scopes required.)');
-    return;
-  }
-  if (!isTokenFormatValid(apiKey)) {
-    alert('Token format looks wrong — it should start with "lip_" followed by 20+ letters/numbers.\n\nGet a fresh token from: https://lichess.org/account/oauth/token/create');
-    return;
-  }
+  // if (!apiKey) {
+  //   alert('Please enter your Lichess API token.\n\nCreate one at: https://lichess.org/account/oauth/token/create\n(No special scopes required.)');
+  //   return;
+  // }
+  // if (!isTokenFormatValid(apiKey)) {
+  //   alert('Token format looks wrong — it should start with "lip_" followed by 20+ letters/numbers.\n\nGet a fresh token from: https://lichess.org/account/oauth/token/create');
+  //   return;
+  // }
 
   const theme = document.getElementById('lc-theme').value;
   const count = parseInt(document.getElementById('cnt-total').value) || 0;
@@ -1176,7 +1186,12 @@ function doGenerate() {
   const defTurn = document.getElementById('default-turn').value;
   const defFlip = document.getElementById('default-flip').value === 'black';
   turnStates   = allPuzzles.map(fen => { if (defTurn === 'auto') { const p = fen.split(' '); return p[1] || 'w'; } return defTurn; });
-  flipStates   = allPuzzles.map(() => defFlip);
+  // flipStates   = allPuzzles.map(() => defFlip);
+  flipStates = allPuzzles.map((fen, i) => {
+    // If you want to always auto-flip for black to move:
+    const turn = turnStates[i];
+    return turn === 'b';
+  });
   answerStates = allPuzzles.map((_, i) => answerStates[i] || '');
   noteStates   = allPuzzles.map((_, i) => noteStates[i]   || '');
   buildUI();
