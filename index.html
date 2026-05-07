@@ -864,15 +864,17 @@ async function fetchOnePuzzle(theme, apiKey, difficulty) {
   return extractFenFromPuzzle(data);
 }
 
-async function fetchBatch(theme, count, apiKey) {
+async function fetchBatch(theme, count, apiKey, difficulty) {
   if (count <= 0) return [];
-  const url = `https://lichess.org/api/puzzle/batch/${encodeURIComponent(theme)}`;
-  // const url = `https://lichess.org/api/puzzle/batch/${count}?angle=${encodeURIComponent(theme)}`;
+  const params = new URLSearchParams();
+  if (theme) params.set('angle', theme);
+  if (difficulty && difficulty !== 'normal') params.set('difficulty', difficulty);
+  const url = `https://lichess.org/api/puzzle/batch/${count}?${params.toString()}`;
   const headers = { 'Accept': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   console.log('[Lichess API] Batch URL:', url);
-  const res = await fetch(url); //, { headers });
+  const res = await fetch(url, { headers });
   if (res.status === 401) throw new Error('Invalid or missing API token — check your token at lichess.org/account/oauth/token');
   if (res.status === 429) throw new Error('Rate limited by Lichess. Wait a minute and retry.');
   if (!res.ok) {
@@ -914,6 +916,7 @@ async function fetchFromLichess() {
   // }
 
   const theme = document.getElementById('lc-theme').value;
+  const difficulty = document.getElementById('lc-difficulty').value;
   const count = parseInt(document.getElementById('cnt-total').value) || 0;
   if (count <= 0) { alert('Please set the number of puzzles above zero.'); return; }
 
