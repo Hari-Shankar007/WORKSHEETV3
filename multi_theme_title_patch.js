@@ -26,6 +26,8 @@
   const themeConfigs = [];
   let sheetTitles = [];
   let customSheetTitles = [];
+  let fetchedThemeNames = [];
+  let fetchedThemeFens = [];
 
   // ---------- Styling ----------
   const style = document.createElement('style');
@@ -225,13 +227,49 @@
   titleField.innerHTML = `
     <div class="s-label">Default worksheet title</div>
     <input type="text" class="s-input" id="default-sheet-title" value="Chess Puzzle Worksheet" />
-    <div style="font-size:9.5px;color:var(--text-muted);margin-top:4px">Each sheet starts with this title. You can then click and edit any sheet title in the preview.</div>
+    <div class="s-label" style="margin-top:8px">Sheet title mode</div>
+    <select class="s-input" id="sheet-title-mode">
+      <option value="manual" selected>Manual title</option>
+      <option value="theme">Automatically use puzzle theme</option>
+    </select>
+    <div style="font-size:9.5px;color:var(--text-muted);margin-top:4px">Theme mode names each sheet after the Lichess theme(s) represented on it. You can still click any preview title to edit it.</div>
   `;
   academyTitle.closest('.s-field').insertAdjacentElement('afterend', titleField);
 
   function makeDefaultSheetTitle(index) {
     const base = ($('default-sheet-title').value || 'Chess Puzzle Worksheet').trim();
     return `${base} — Sheet ${index + 1}`;
+  }
+
+  function getAutoThemeTitle(page) {
+    if ($('sheet-title-mode').value !== 'theme') return '';
+
+    // Only use theme names when this exact puzzle list came from the latest
+    // multi-theme Lichess fetch. This prevents stale titles on Manual/Built-in sets.
+    const currentFens = typeof allPuzzles !== 'undefined' && Array.isArray(allPuzzles)
+      ? allPuzzles : [];
+    if (!fetchedThemeFens.length ||
+        currentFens.length !== fetchedThemeFens.length ||
+        !currentFens.every((fen, index) => fen === fetchedThemeFens[index])) {
+      return '';
+    }
+
+    const labels = [];
+    page.querySelectorAll('.puzzle-num-lbl').forEach((label) => {
+      const match = label.textContent.match(/Puzzle\s+(\d+)/i);
+      if (!match) return;
+      const puzzleIndex = Number(match[1]) - 1;
+      const themeName = fetchedThemeNames[puzzleIndex];
+      if (themeName && !labels.includes(themeName)) labels.push(themeName);
+    });
+
+    if (!labels.length) return '';
+    if (labels.length <= 3) return labels.join(' + ');
+    return `${labels.slice(0, 2).join(' + ')} + ${labels.length - 2} more themes`;
+  }
+
+  function getSheetTitle(page, index) {
+    return getAutoThemeTitle(page) || makeDefaultSheetTitle(index);
   }
 
   function decorateSheetTitles() {
@@ -263,7 +301,7 @@
       }
 
       if (typeof sheetTitles[index] !== 'string' || !sheetTitles[index]) {
-        sheetTitles[index] = makeDefaultSheetTitle(index);
+        sheetTitles[index] = getSheetTitle(page, index);
       }
       title.textContent = sheetTitles[index];
     });
@@ -272,7 +310,18 @@
   $('default-sheet-title').addEventListener('input', () => {
     document.querySelectorAll('.worksheet-page').forEach((page, index) => {
       if (customSheetTitles[index]) return;
-      sheetTitles[index] = makeDefaultSheetTitle(index);
+      sheetTitles[index] = getSheetTitle(page, index);
+      const title = page.querySelector('.hdr-sheet-title');
+      if (title) title.textContent = sheetTitles[index];
+    });
+  });
+
+  // Switching title modes clears per-sheet overrides so the selected mode
+  // immediately takes effect on every worksheet.
+  $('sheet-title-mode').addEventListener('change', () => {
+    document.querySelectorAll('.worksheet-page').forEach((page, index) => {
+      customSheetTitles[index] = false;
+      sheetTitles[index] = getSheetTitle(page, index);
       const title = page.querySelector('.hdr-sheet-title');
       if (title) title.textContent = sheetTitles[index];
     });
@@ -294,6 +343,10 @@
   $('clear-btn').addEventListener('click', () => {
     sheetTitles = [];
     customSheetTitles = [];
+    fetchedThemeNames = [];
+    fetchedThemeFens = [];
+    window.__puzzleSheetThemeNames = [];
+    window.__puzzleSheetThemeFens = [];
   });
 
   // ---------- Multi-theme Lichess fetch ----------
@@ -322,6 +375,7 @@
     bar.style.width = '0%';
 
     const combinedFens = [];
+    const combinedThemeNames = [];
     const seen = new Set();
     let completed = 0;
 
@@ -354,6 +408,7 @@
         }
 
         combinedFens.push(...uniqueForTheme);
+        combinedThemeNames.push(...uniqueForTheme.map(() => config.label));
         completed += uniqueForTheme.length;
         bar.style.width = `${Math.round(((themeIndex + 1) / configs.length) * 100)}%`;
         msg.textContent = `${config.label}: ${uniqueForTheme.length}/${config.count} fetched. Total ${completed}/${totalRequested}.`;
@@ -365,6 +420,12 @@
 
       allPuzzles = combinedFens;
       allDiffs = combinedFens.map(() => '');
+      fetchedThemeNames = combinedThemeNames.slice();
+      fetchedThemeFens = combinedFens.slice();
+      window.__puzzleSheetThemeNames = fetchedThemeNames.slice();
+      window.__puzzleSheetThemeFens = fetchedThemeFens.slice();
+      sheetTitles = [];
+      customSheetTitles = [];
       $('fen-ta').value = combinedFens.join('\n');
       if (typeof updateCount === 'function') updateCount();
       if (typeof doGenerate === 'function') doGenerate();
