@@ -1,4 +1,3 @@
-/*
  * PuzzleSheet enhancement patch
  * Adds:
  *  1. Multiple Lichess themes in one fetch.
@@ -26,6 +25,8 @@
   const themeConfigs = [];
   let sheetTitles = [];
   let customSheetTitles = [];
+  let sheetSubtitles = [];
+  let customSheetSubtitles = [];
   let fetchedThemeNames = [];
   let fetchedThemeFens = [];
 
@@ -80,6 +81,8 @@
       font-size:10px !important; font-weight:700 !important;
       color:#8a6c2a !important; margin-bottom:3px !important;
     }
+    .hdr-sub[contenteditable="true"] { cursor:text; border-radius:3px; padding:1px 3px; }
+    .hdr-sub[contenteditable="true"]:focus { outline:1px dashed #b28b3b; background:#fff8e8; }
     @media print {
       .hdr-sheet-title {
         min-height:0; margin:0 0 2px; padding:0;
@@ -87,6 +90,38 @@
         outline:none !important; background:transparent !important;
       }
       .hdr-title { font-size:9px !important; color:#555 !important; }
+    }
+    /* Print repair: let every worksheet page flow naturally instead of
+       clipping it to a fixed 281mm box. Repaint boards before printing. */
+    @media print {
+      @page { size:A4 portrait; margin:8mm; }
+      html, body { width:auto !important; height:auto !important; min-height:0 !important; overflow:visible !important; background:#fff !important; color:#111 !important; }
+      #app, #main, .main-inner, #sheets-wrap { display:block !important; width:100% !important; height:auto !important; min-height:0 !important; max-height:none !important; overflow:visible !important; position:static !important; background:#fff !important; }
+      #sidebar, .sheet-nav { display:none !important; }
+      #main::before { display:none !important; content:none !important; }
+      .worksheet-page { display:block !important; position:relative !important; box-sizing:border-box !important; width:100% !important; max-width:none !important; height:auto !important; min-height:0 !important; max-height:none !important; overflow:visible !important; margin:0 !important; padding:6px 7px 4px !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; background:#fff !important; color:#111 !important; animation:none !important; break-after:page !important; page-break-after:always !important; break-inside:avoid !important; page-break-inside:avoid !important; }
+      .worksheet-page:last-child { break-after:auto !important; page-break-after:auto !important; }
+      .page-header, .puzzle-card { break-inside:avoid !important; page-break-inside:avoid !important; }
+      .page-header { border-bottom:1.5px solid #bbb !important; padding-bottom:7px !important; margin-bottom:10px !important; }
+      .puzzles-grid { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:8px !important; align-items:start !important; }
+      .puzzle-card { min-width:0 !important; overflow:hidden !important; background:#fff !important; color:#111 !important; border:1px solid #ccc !important; box-shadow:none !important; }
+      .puzzle-card-header { background:#f5f5f0 !important; }
+      .board-wrap { width:100% !important; aspect-ratio:1 / 1 !important; height:auto !important; overflow:hidden !important; background:#fff !important; }
+      canvas.brd { display:block !important; width:100% !important; height:100% !important; max-width:100% !important; background:transparent !important; filter:none !important; opacity:1 !important; }
+      .puzzle-card-body { background:#fff !important; color:#111 !important; padding:7px !important; gap:5px !important; }
+      .puzzle-num-lbl, .field-label, .hdr-sub, .hdr-contact, .hdr-sheet-num { color:#333 !important; }
+      .hdr-sheet-title { color:#111 !important; font-size:15px !important; outline:none !important; background:transparent !important; }
+      .hdr-sub { font-size:9px !important; }
+      .hdr-contact { font-size:11px !important; }
+      .hdr-sheet-num { font-size:9px !important; }
+      .hdr-logo-ph { border-color:#ccc !important; color:#aaa !important; width:40px !important; height:40px !important; }
+      .flip-btn { display:none !important; }
+      .turn-bar { font-size:8px !important; padding:4px !important; }
+      .turn-bar.white { background:#f0f0f0 !important; color:#111 !important; }
+      .turn-bar.black { background:#2a2a3a !important; color:#fff !important; }
+      .field-label { font-size:7.5px !important; }
+      .answer-field { color:#111 !important; font-size:10px !important; min-height:20px !important; padding:2px !important; border-bottom-color:#333 !important; }
+      .notes-textarea { color:#111 !important; font-size:9px !important; line-height:17px !important; background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 15px,rgba(0,0,0,.2) 15px,rgba(0,0,0,.2) 16px) !important; background-size:100% 17px !important; }
     }
     @media (max-width:520px) {
       .multi-theme-add-row { align-items:stretch; flex-direction:column; }
@@ -304,6 +339,34 @@
         sheetTitles[index] = getSheetTitle(page, index);
       }
       title.textContent = sheetTitles[index];
+
+      // The subtitle is editable in the preview too. Each sheet keeps its own
+      // subtitle once the user edits it.
+      const subtitle = headerCenter.querySelector('.hdr-sub');
+      if (subtitle) {
+        subtitle.contentEditable = 'true';
+        subtitle.spellcheck = false;
+        subtitle.setAttribute('role', 'textbox');
+        subtitle.setAttribute('aria-label', `Subtitle for sheet ${index + 1}`);
+        subtitle.setAttribute('title', 'Click here to edit this sheet subtitle');
+        if (!subtitle.dataset.editHandlerAttached) {
+          subtitle.dataset.editHandlerAttached = 'true';
+          subtitle.addEventListener('input', () => {
+            sheetSubtitles[index] = subtitle.textContent.trim();
+            customSheetSubtitles[index] = true;
+          });
+          subtitle.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              subtitle.blur();
+            }
+          });
+        }
+        if (typeof sheetSubtitles[index] !== 'string') {
+          sheetSubtitles[index] = $('ws-sub').value || '';
+        }
+        subtitle.textContent = sheetSubtitles[index];
+      }
     });
   }
 
@@ -313,6 +376,19 @@
       sheetTitles[index] = getSheetTitle(page, index);
       const title = page.querySelector('.hdr-sheet-title');
       if (title) title.textContent = sheetTitles[index];
+    });
+  });
+
+  $('ws-sub').addEventListener('input', () => {
+    document.querySelectorAll('.worksheet-page').forEach((page, index) => {
+      const subtitle = page.querySelector('.hdr-sub');
+      if (!subtitle) return;
+      if (customSheetSubtitles[index]) {
+        subtitle.textContent = sheetSubtitles[index] || '';
+      } else {
+        sheetSubtitles[index] = $('ws-sub').value;
+        subtitle.textContent = sheetSubtitles[index];
+      }
     });
   });
 
@@ -343,6 +419,8 @@
   $('clear-btn').addEventListener('click', () => {
     sheetTitles = [];
     customSheetTitles = [];
+    sheetSubtitles = [];
+    customSheetSubtitles = [];
     fetchedThemeNames = [];
     fetchedThemeFens = [];
     window.__puzzleSheetThemeNames = [];
@@ -426,6 +504,8 @@
       window.__puzzleSheetThemeFens = fetchedThemeFens.slice();
       sheetTitles = [];
       customSheetTitles = [];
+      sheetSubtitles = [];
+      customSheetSubtitles = [];
       $('fen-ta').value = combinedFens.join('\n');
       if (typeof updateCount === 'function') updateCount();
       if (typeof doGenerate === 'function') doGenerate();
@@ -448,4 +528,21 @@
 
   fetchButton.textContent = '⬇ Fetch selected themes';
   updateThemeSummary();
+
+  function redrawBoardsForPrint() {
+    if (typeof allPuzzles === 'undefined' || typeof drawBoard !== 'function') return;
+    document.querySelectorAll('.worksheet-page').forEach((page) => {
+      page.style.display = 'block';
+      page.querySelectorAll('canvas.brd').forEach((canvas) => {
+        const label = canvas.closest('.puzzle-card')?.querySelector('.puzzle-num-lbl')?.textContent || '';
+        const match = label.match(/Puzzle\s+(\d+)/i);
+        if (!match) return;
+        const puzzleIndex = Number(match[1]) - 1;
+        const fen = allPuzzles[puzzleIndex];
+        if (fen) drawBoard(canvas, fen, !!(typeof flipStates !== 'undefined' && flipStates[puzzleIndex]));
+      });
+    });
+  }
+
+  window.addEventListener('beforeprint', redrawBoardsForPrint);
 })();
