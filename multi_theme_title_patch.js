@@ -1,3 +1,4 @@
+/*
  * PuzzleSheet enhancement patch
  * Adds:
  *  1. Multiple Lichess themes in one fetch.
@@ -545,4 +546,365 @@
   }
 
   window.addEventListener('beforeprint', redrawBoardsForPrint);
+})();
+
+/* ===== Integrated print and per-sheet subtitle repair ===== */
+/*
+ * PuzzleSheet print and subtitle repair
+ * Load AFTER multi_theme_title_patch.js.
+ * - Adds a clear, per-sheet subtitle editor inside each worksheet preview.
+ * - Prints worksheet pages in a clean, isolated A4 document.
+ * - Converts chess canvases to PNG images before printing to avoid black blocks.
+ * - Removes the app's sheet counter and avoids browser title/URL/page headers by
+ *   using a zero-margin @page rule in the isolated print document.
+ */
+(function () {
+  if (window.__worksheetPrintSubtitleFixLoaded) return;
+  window.__worksheetPrintSubtitleFixLoaded = true;
+
+  const $ = (id) => document.getElementById(id);
+  let subtitleValues = [];
+  let customSubtitles = [];
+  let lastPuzzleSignature = null;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    /* The visible preview uses a real textarea so editing is obvious and reliable. */
+    .worksheet-page .hdr-sub { display:none !important; }
+    .worksheet-page .sheet-subtitle-editor {
+      display:block; width:100%; min-height:30px; height:auto; resize:vertical;
+      margin:2px 0 0; padding:4px 6px; border:1px dashed #c8bfa8;
+      border-radius:4px; background:rgba(255,255,255,.72); color:#666;
+      font:11px/1.45 'DM Sans',sans-serif; outline:none; overflow:hidden;
+    }
+    .worksheet-page .sheet-subtitle-editor:focus {
+      border-color:#a07830; background:#fffdf7; box-shadow:0 0 0 2px rgba(201,168,76,.12);
+    }
+    .worksheet-page .sheet-subtitle-editor::placeholder { color:#999; font-style:italic; }
+    @media print {
+      .worksheet-page .sheet-subtitle-editor { display:none !important; }
+      .worksheet-page .hdr-sub { display:block !important; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  function fitSubtitleEditor(editor) {
+    editor.style.height = 'auto';
+    editor.style.height = Math.max(30, editor.scrollHeight) + 'px';
+  }
+
+  function decorateSubtitleEditors() {
+    const currentPuzzles = typeof allPuzzles !== 'undefined' && Array.isArray(allPuzzles) ? allPuzzles : [];
+    const signature = currentPuzzles.join('\n');
+    if (signature !== lastPuzzleSignature) {
+      subtitleValues = [];
+      customSubtitles = [];
+      lastPuzzleSignature = signature;
+    }
+    const defaultSubtitle = $('ws-sub') ? $('ws-sub').value : '';
+    document.querySelectorAll('.worksheet-page').forEach((page, index) => {
+      const header = page.querySelector('.hdr-center');
+      const printedSubtitle = header && header.querySelector('.hdr-sub');
+      if (!header || !printedSubtitle) return;
+
+      let editor = header.querySelector('.sheet-subtitle-editor');
+      if (!editor) {
+        editor = document.createElement('textarea');
+        editor.className = 'sheet-subtitle-editor';
+        editor.rows = 1;
+        editor.placeholder = `Edit subtitle for Sheet ${index + 1}…`;
+        editor.setAttribute('aria-label', `Subtitle for worksheet sheet ${index + 1}`);
+        editor.title = 'Type a different subtitle for this sheet';
+        printedSubtitle.insertAdjacentElement('afterend', editor);
+        editor.addEventListener('input', () => {
+          subtitleValues[index] = editor.value;
+          customSubtitles[index] = true;
+          printedSubtitle.textContent = editor.value;
+          fitSubtitleEditor(editor);
+        });
+        editor.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            editor.blur();
+          }
+        });
+      }
+
+      if (customSubtitles[index] && typeof subtitleValues[index] === 'string') {
+        editor.value = subtitleValues[index];
+      } else {
+        subtitleValues[index] = defaultSubtitle;
+        editor.value = defaultSubtitle;
+      }
+      printedSubtitle.textContent = editor.value;
+      fitSubtitleEditor(editor);
+    });
+  }
+
+  // The existing theme patch wraps buildUI first. Wrap that version so subtitle
+  // editors are restored every time a worksheet is generated or regenerated.
+  if (typeof window.buildUI === 'function') {
+    const previousBuildUI = window.buildUI;
+    window.buildUI = function () {
+      const result = previousBuildUI.apply(this, arguments);
+      decorateSubtitleEditors();
+      return result;
+    };
+  }
+
+  // The main sidebar subtitle acts as the default for sheets not individually edited.
+  if ($('ws-sub')) {
+    $('ws-sub').addEventListener('input', () => {
+      const value = $('ws-sub').value;
+      document.querySelectorAll('.worksheet-page').forEach((page, index) => {
+        if (customSubtitles[index]) return;
+        subtitleValues[index] = value;
+        const editor = page.querySelector('.sheet-subtitle-editor');
+        const printedSubtitle = page.querySelector('.hdr-sub');
+        if (editor) {
+          editor.value = value;
+          fitSubtitleEditor(editor);
+        }
+        if (printedSubtitle) printedSubtitle.textContent = value;
+      });
+    });
+  }
+
+  if ($('clear-btn')) {
+    $('clear-btn').addEventListener('click', () => {
+      subtitleValues = [];
+      customSubtitles = [];
+      lastPuzzleSignature = null;
+    });
+  }
+
+  function makePrintablePage(sourcePage, pageIndex) {
+    const page = sourcePage.cloneNode(true);
+    page.className = 'print-page';
+    page.removeAttribute('style');
+
+    // Copy the live text from editable preview controls into the printable text.
+    const liveSubtitle = sourcePage.querySelector('.sheet-subtitle-editor');
+    const subtitle = page.querySelector('.hdr-sub');
+    if (subtitle) {
+      subtitle.textContent = liveSubtitle ? liveSubtitle.value : (subtitleValues[pageIndex] || subtitle.textContent || '');
+      subtitle.removeAttribute('contenteditable');
+      subtitle.style.display = 'block';
+    }
+    page.querySelectorAll('.sheet-subtitle-editor').forEach((el) => el.remove());
+    page.querySelectorAll('[contenteditable]').forEach((el) => el.removeAttribute('contenteditable'));
+
+    // This is the app's own "Sheet X of Y" label. Do not include it in print.
+    page.querySelectorAll('.hdr-sheet-num').forEach((el) => el.remove());
+    page.querySelectorAll('.flip-btn').forEach((el) => el.remove());
+
+    // Preserve the current answers and notes, not just their original HTML values.
+    const sourceInputs = sourcePage.querySelectorAll('.answer-field');
+    const clonedInputs = page.querySelectorAll('.answer-field');
+    sourceInputs.forEach((input, i) => {
+      if (clonedInputs[i]) {
+        clonedInputs[i].value = input.value;
+        clonedInputs[i].setAttribute('value', input.value);
+      }
+    });
+    const sourceNotes = sourcePage.querySelectorAll('.notes-textarea');
+    const clonedNotes = page.querySelectorAll('.notes-textarea');
+    sourceNotes.forEach((area, i) => {
+      if (clonedNotes[i]) {
+        clonedNotes[i].value = area.value;
+        clonedNotes[i].textContent = area.value;
+      }
+    });
+
+    // Canvas printing is inconsistent in some Chromium builds. Convert every
+    // rendered chessboard to a self-contained PNG image before opening print.
+    const sourceCanvases = sourcePage.querySelectorAll('canvas.brd');
+    const clonedCanvases = page.querySelectorAll('canvas.brd');
+    sourceCanvases.forEach((canvas, i) => {
+      const targetCanvas = clonedCanvases[i];
+      if (!targetCanvas) return;
+      try {
+        const boardImage = document.createElement('img');
+        boardImage.className = 'print-board';
+        boardImage.alt = 'Chess position';
+        boardImage.src = canvas.toDataURL('image/png');
+        targetCanvas.replaceWith(boardImage);
+      } catch (error) {
+        // If a remote SVG piece image tainted the canvas, redraw this board
+        // temporarily with Unicode pieces. That creates a clean, exportable PNG.
+        try {
+          const label = canvas.closest('.puzzle-card')?.querySelector('.puzzle-num-lbl')?.textContent || '';
+          const match = label.match(/Puzzle\s+(\d+)/i);
+          const puzzleIndex = match ? Number(match[1]) - 1 : -1;
+          const fen = puzzleIndex >= 0 && typeof allPuzzles !== 'undefined' ? allPuzzles[puzzleIndex] : null;
+          const savedPieces = typeof PIECES !== 'undefined' ? { ...PIECES } : null;
+          try {
+            if (savedPieces) Object.keys(PIECES).forEach((key) => { PIECES[key] = null; });
+            if (fen && typeof drawBoard === 'function') {
+              drawBoard(canvas, fen, !!(typeof flipStates !== 'undefined' && flipStates[puzzleIndex]));
+            }
+            const fallbackImage = document.createElement('img');
+            fallbackImage.className = 'print-board';
+            fallbackImage.alt = 'Chess position';
+            fallbackImage.src = canvas.toDataURL('image/png');
+            targetCanvas.replaceWith(fallbackImage);
+          } finally {
+            if (savedPieces) Object.assign(PIECES, savedPieces);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback chessboard export also failed:', fallbackError, error);
+        }
+      }
+    });
+
+    return page;
+  }
+
+  function printStyles() {
+    return `
+      <style>
+        @page { size:A4 portrait; margin:0; }
+        * { box-sizing:border-box; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+        html, body { margin:0 !important; padding:0 !important; width:210mm !important; min-width:210mm !important; background:#fff !important; color:#111 !important; }
+        body { font-family:Arial,Helvetica,sans-serif; color-scheme:light; }
+        .print-page {
+          display:block; position:relative; width:210mm; height:297mm; max-height:297mm;
+          margin:0; padding:8mm 9mm 7mm; overflow:hidden; background:#fff; color:#111;
+          page-break-after:always; break-after:page; page-break-inside:avoid; break-inside:avoid;
+        }
+        .print-page:last-child { page-break-after:auto; break-after:auto; }
+        .page-header { display:flex; align-items:flex-start; gap:4mm; padding-bottom:3mm; margin-bottom:4mm; border-bottom:1px solid #bbb; }
+        .hdr-logo-ph, .hdr-logo { display:flex; flex:0 0 14mm; width:14mm; height:14mm; object-fit:contain; align-items:center; justify-content:center; border:1px solid #ccc; border-radius:2mm; color:#999; font-size:7pt; }
+        .hdr-center { flex:1 1 auto; min-width:0; }
+        .hdr-sheet-title { display:block; margin:0 0 1.5mm; padding:0; color:#111; font-family:Georgia,'Times New Roman',serif; font-size:17pt; font-weight:700; line-height:1.15; overflow-wrap:anywhere; }
+        .hdr-title { margin:0 0 1mm; color:#444; font-size:8pt; font-weight:600; }
+        .hdr-sub { display:block !important; margin:0; padding:0; color:#555; font-size:8pt; line-height:1.35; white-space:pre-wrap; overflow-wrap:anywhere; }
+        .hdr-right { text-align:right; color:#333; white-space:nowrap; font-size:8pt; }
+        .hdr-contact { margin-bottom:1mm; color:#111; font-size:9pt; font-weight:700; }
+        .hdr-sheet-num { display:none !important; }
+        .puzzles-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3mm; align-items:start; }
+        .puzzle-card { display:flex; min-width:0; flex-direction:column; overflow:hidden; break-inside:avoid; page-break-inside:avoid; border:0.3mm solid #d5d0c6; border-radius:2mm; background:#fff; color:#111; box-shadow:none; }
+        .puzzle-card-header { display:flex; align-items:center; justify-content:space-between; gap:2mm; padding:1.5mm 2mm; border-bottom:0.2mm solid #ddd; background:#f4f0e8; }
+        .puzzle-num-lbl { color:#444; font-size:7pt; font-weight:700; letter-spacing:.04em; }
+        .puzzle-card-header-right { display:flex; align-items:center; gap:1mm; }
+        .diff-badge { padding:.5mm 1mm; border-radius:1mm; font-size:6pt; font-weight:700; }
+        .board-wrap { display:block; width:100%; aspect-ratio:1 / 1; height:auto; overflow:hidden; background:#fff; }
+        .print-board { display:block; width:100%; height:auto; aspect-ratio:1 / 1; object-fit:contain; background:#fff; }
+        .turn-bar { padding:1.2mm 1mm; border-top:.2mm solid #ddd; text-align:center; font-size:7pt; font-weight:700; letter-spacing:.04em; }
+        .turn-bar.white { background:#f0ede5; color:#222; }
+        .turn-bar.black { background:#2a2a3a; color:#fff; }
+        .puzzle-card-body { display:flex; flex-direction:column; gap:1.5mm; padding:2mm; background:#fff; }
+        .answer-row, .notes-section { display:flex; flex-direction:column; gap:.5mm; }
+        .field-label { color:#666; font-size:6pt; font-weight:700; letter-spacing:.05em; }
+        .answer-field { width:100%; min-height:5mm; padding:.5mm 0; border:0; border-bottom:.25mm solid #777; border-radius:0; background:transparent; color:#111; font-size:8pt; }
+        .notes-textarea { display:block; width:100%; min-height:9mm; padding:0; resize:none; border:0; background:repeating-linear-gradient(to bottom,transparent 0,transparent 4mm,rgba(0,0,0,.17) 4mm,rgba(0,0,0,.17) 4.2mm); color:#111; font-size:7pt; line-height:4mm; overflow:hidden; }
+        .flip-btn, .sheet-nav, .nav-print-btn, .sheet-subtitle-editor { display:none !important; }
+        @media screen {
+          html,body { width:auto !important; min-width:0 !important; background:#777 !important; }
+          .print-page { margin:8mm auto; box-shadow:0 1mm 5mm rgba(0,0,0,.25); }
+        }
+      </style>`;
+  }
+
+  let printInProgress = false;
+  function printAllWorksheets() {
+    if (printInProgress) return;
+    const sourcePages = Array.from(document.querySelectorAll('.worksheet-page'));
+    if (!sourcePages.length) {
+      alert('Generate worksheets before printing.');
+      return;
+    }
+
+    // Open the blank print tab synchronously inside the user's click so that
+    // popup blockers do not reject it while boards are being prepared.
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Your browser blocked the print tab. Allow pop-ups for this website, then click Print / Save PDF again.');
+      return;
+    }
+
+    printInProgress = true;
+    printWindow.document.open();
+    printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title> </title></head><body><p style="font:14px Arial;padding:20px">Preparing worksheets for printing…</p></body></html>');
+    printWindow.document.close();
+
+    (async () => {
+      try {
+        if (typeof pieceImagesReady !== 'undefined') {
+          await Promise.race([pieceImagesReady, new Promise(resolve => setTimeout(resolve, 2500))]);
+        }
+        // Redraw all positions before taking snapshots, including pages hidden in
+        // the preview tabs. Their hidden display state does not affect canvas size.
+        if (typeof allPuzzles !== 'undefined' && typeof drawBoard === 'function') {
+          sourcePages.forEach((page) => {
+            page.querySelectorAll('canvas.brd').forEach((canvas) => {
+              const label = canvas.closest('.puzzle-card')?.querySelector('.puzzle-num-lbl')?.textContent || '';
+              const match = label.match(/Puzzle\s+(\d+)/i);
+              if (!match) return;
+              const puzzleIndex = Number(match[1]) - 1;
+              const fen = allPuzzles[puzzleIndex];
+              if (fen) drawBoard(canvas, fen, !!(typeof flipStates !== 'undefined' && flipStates[puzzleIndex]));
+            });
+          });
+        }
+
+        const printable = sourcePages.map(makePrintablePage);
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${printStyles()}<title> </title></head><body></body></html>`);
+        const targetBody = printWindow.document.body;
+        printable.forEach((page) => targetBody.appendChild(printWindow.document.importNode(page, true)));
+        printWindow.document.close();
+
+        // Wait for all embedded images to be decoded before invoking the printer.
+        const images = Array.from(printWindow.document.images);
+        await Promise.all(images.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            setTimeout(resolve, 3000);
+          });
+        }));
+        await new Promise(resolve => setTimeout(resolve, 250));
+        printWindow.focus();
+        printWindow.print();
+        printWindow.onafterprint = () => {
+          try { printWindow.close(); } catch (_) {}
+        };
+      } catch (error) {
+        console.error('Worksheet print preparation failed:', error);
+        alert('The print view could not be prepared. Please allow pop-ups for this website and try again.');
+        try { printWindow.close(); } catch (_) {}
+      } finally {
+        printInProgress = false;
+      }
+    })();
+  }
+
+  // Capture the print buttons before the original handlers run. The app's
+  // buttons and the per-preview "Print all" button both use this clean print view.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('#print-btn, .nav-print-btn');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    printAllWorksheets();
+  }, true);
+
+  // Keep Ctrl/Cmd+P on the same print path as the app's Print button.
+  window.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      printAllWorksheets();
+    }
+  }, true);
+
+  // Existing code may call window.print() directly; route it through the clean view.
+  try { window.print = printAllWorksheets; } catch (error) {
+    console.warn('Could not replace the native print function; use the Print / Save PDF button.', error);
+  }
+
+  // Add editors to already-rendered pages in case the patch was loaded late.
+  decorateSubtitleEditors();
 })();
